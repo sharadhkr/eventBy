@@ -1,5 +1,4 @@
 .env
-npm install firebase-admin cors helmet morgan
 node_modules
 dist/
 build/
@@ -16,3 +15,4 @@ yarn-error.log*
 *.swo
 *.bak
 *.tmp
+firebase-service-account.json
