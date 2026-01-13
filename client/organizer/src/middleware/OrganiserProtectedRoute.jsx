@@ -1,11 +1,14 @@
 import { Navigate } from "react-router-dom";
-import { useOrganiserAuth } from "../context/organiser.auth";
+import { useOrganiserAuth } from "../context/organiser.auth.context";
 
 const OrganiserProtectedRoute = ({ children }) => {
-  const { organiser, loading } = useOrganiserAuth();
+  const { isAuth, loading } = useOrganiserAuth();
 
   if (loading) return <div>Loading...</div>;
-  if (!organiser) return <Navigate to="/organiser/login" />;
+
+  if (!isAuth) {
+    return <Navigate to="/login" replace />;
+  }
 
   return children;
 };

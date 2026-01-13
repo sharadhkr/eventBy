@@ -1,9 +1,9 @@
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import Login from "../pages/auth/Login";
-import Home from "../pages/auth/Home";
-import Events from "../pages/auth/Home";
-import Tickets from "../pages/auth/Home";
-import Profile from "../pages/auth/Home";
+import Home from "../pages/Home";
+import Events from "../pages/Home";
+import Tickets from "../pages/Home";
+import Profile from "../pages/Home";
 import ProtectedRoute from "../middleware/ProtectedRoute";
 import MainLayout from "../layouts/NavLayout";
 
@@ -26,7 +26,7 @@ export default function AppRoutes() {
           <Route path="/events" element={<Events />} />
           <Route path="/tickets" element={<Tickets />} />
           <Route path="/profile" element={<Profile />} />
-          <Route path="/payment" element={<Profile />} />
+          <Route path="/payments" element={<Profile />} />
         </Route>
 
         {/* Redirect */}

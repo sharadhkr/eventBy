@@ -1,16 +1,27 @@
 const mongoose = require("mongoose");
-const bcrypt = require("bcryptjs");
 
-const organiserSchema = new mongoose.Schema({
-  email: { type: String, unique: true, required: true },
-  password: { type: String, required: true },
-  name: String,
-  companyName: String,
-}, { timestamps: true });
+const organiserSchema = new mongoose.Schema(
+  {
+    organisationName: { type: String, required: true },
+    ownerName: { type: String, required: true },
 
-organiserSchema.pre("save", async function () {
-  if (!this.isModified("password")) return;
-  this.password = await bcrypt.hash(this.password, 10);
-});
+    email: {
+      type: String,
+      required: true,
+      unique: true,
+      lowercase: true,
+    },
+
+    phone: { type: String, required: true },
+
+    address: { type: String },
+
+    password: { type: String, required: true },
+
+    isActive: { type: Boolean, default: true },
+    lastLogin: Date,
+  },
+  { timestamps: true }
+);
 
 module.exports = mongoose.model("Organiser", organiserSchema);

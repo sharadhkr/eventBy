@@ -3,7 +3,7 @@ import NavBar from "../components/NavBar";
 
 const NavLayout = () => {
   return (
-    <div className="min-h-screen pb-24 md:pb-0">
+    <div className="min-h-screen md:pb-0">
       {/* Page Content */}
       <Outlet />
 

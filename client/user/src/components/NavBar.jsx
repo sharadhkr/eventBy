@@ -6,7 +6,6 @@ const tabs = [
   { path: "/home", icon: Home, label: "Home" },
   { path: "/events", icon: Calendar, label: "Events" },
   { path: "/profile", icon: User, label: "Profile" },
-  { path: "/profile", icon: User, label: "Profile" },
 ];
 
 const BUBBLE_WIDTH = 90;
