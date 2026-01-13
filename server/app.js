@@ -4,7 +4,7 @@ const helmet = require("helmet");
 const morgan = require("morgan");
 const cookieParser = require("cookie-parser");
 
-const authRoutes = require("./routes/auth.routes");
+const authRoutes = require("./routes/user/auth.routes");
 const organiserAuthRoutes = require("./routes/organiser/auth.routes");
 const EventsRoutes = require("./routes/organiser/Event.routes");
 
@@ -28,7 +28,7 @@ if (process.env.NODE_ENV !== "production") {
 }
 app.use("/auth", authRoutes);
 app.use("/api/organiser/auth", organiserAuthRoutes);
-app.use("/api/organiser/event", EventsRoutes);
+app.use("/api/event", EventsRoutes);
 
 app.get("/health", (req, res) => {
   res.json({ status: "ok" });

@@ -8,34 +8,63 @@ exports.createEvent = async (req, res) => {
     const {
       title,
       description,
-      date,
-      time,
-      location,
-      price,
-      totalTickets,
+      eventDate,
+      registrationDeadline,
+      location, // Should be { address: String, coordinates: [lon, lat] }
+      ticketPrice,
+      totalCapacity,
+      mode,
+      minGroupSize,
+      maxGroupSize,
+      banner,
+      winningPrize
     } = req.body;
 
+    // Use req.organiser._id from your organiser auth middleware
     const event = await Event.create({
+      organiser: req.organiser._id,
       title,
       description,
-      date,
-      time,
+      eventDate,
+      registrationDeadline,
       location,
-
-      // 🔥 MAP CORRECTLY
-      ticketPrice: Number(price),
-      totalSeats: Number(totalTickets),
-
-      organiser: req.organiser._id,
+      ticketPrice: Number(ticketPrice),
+      totalCapacity: Number(totalCapacity),
+      mode,
+      minGroupSize,
+      maxGroupSize,
+      banner,
+      winningPrize,
+      status: "published" // Or "draft" based on your UI logic
     });
 
     res.status(201).json({
       success: true,
-      event,
+      data: event,
     });
   } catch (error) {
     console.error("CREATE EVENT ERROR:", error);
-    res.status(500).json({ message: error.message });
+    res.status(400).json({ success: false, message: error.message });
+  }
+};
+
+/**
+ * GET ALL EVENTS (Public - For AnalogDatePicker)
+ */
+exports.getAllEvents = async (req, res) => {
+  try {
+    // Only fetch published events for the public feed
+    const events = await Event.find({ status: "published" })
+      .populate("organiser", "organisationName logo")
+      .sort({ eventDate: 1 }); // Sort by date ascending for the picker
+
+    res.status(200).json({
+      success: true,
+      count: events.length,
+      data: events
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
   }
 };
 
@@ -44,15 +73,12 @@ exports.createEvent = async (req, res) => {
  */
 exports.getMyEvents = async (req, res) => {
   try {
-    const organiserId = req.organiser.id;
+    const events = await Event.find({ organiser: req.organiser._id })
+      .sort({ createdAt: -1 });
 
-    const events = await Event.find({ organiser: organiserId }).sort({
-      createdAt: -1,
-    });
-
-    res.json({ success: true, events });
+    res.json({ success: true, count: events.length, data: events });
   } catch (error) {
-    res.status(500).json({ message: "Failed to fetch events" });
+    res.status(500).json({ success: false, message: "Failed to fetch your events" });
   }
 };
 
@@ -61,22 +87,22 @@ exports.getMyEvents = async (req, res) => {
  */
 exports.updateEvent = async (req, res) => {
   try {
-    const organiserId = req.organiser.id;
     const { id } = req.params;
 
+    // Ensure only the owner can update their specific event
     const event = await Event.findOneAndUpdate(
-      { _id: id, organiser: organiserId },
-      req.body,
-      { new: true }
+      { _id: id, organiser: req.organiser._id },
+      { $set: req.body },
+      { new: true, runValidators: true }
     );
 
     if (!event) {
-      return res.status(404).json({ message: "Event not found" });
+      return res.status(404).json({ success: false, message: "Event not found or unauthorized" });
     }
 
-    res.json({ success: true, event });
+    res.json({ success: true, data: event });
   } catch (error) {
-    res.status(500).json({ message: "Update failed" });
+    res.status(400).json({ success: false, message: error.message });
   }
 };
 
@@ -85,20 +111,19 @@ exports.updateEvent = async (req, res) => {
  */
 exports.deleteEvent = async (req, res) => {
   try {
-    const organiserId = req.organiser.id;
     const { id } = req.params;
 
     const event = await Event.findOneAndDelete({
       _id: id,
-      organiser: organiserId,
+      organiser: req.organiser._id,
     });
 
     if (!event) {
-      return res.status(404).json({ message: "Event not found" });
+      return res.status(404).json({ success: false, message: "Event not found" });
     }
 
-    res.json({ success: true });
+    res.json({ success: true, message: "Event deleted successfully" });
   } catch (error) {
-    res.status(500).json({ message: "Delete failed" });
+    res.status(500).json({ success: false, message: "Delete failed" });
   }
 };

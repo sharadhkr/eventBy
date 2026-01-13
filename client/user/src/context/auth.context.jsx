@@ -2,7 +2,7 @@ import React, { createContext, useState, useEffect, useContext, useRef } from "r
 import { onAuthStateChanged, signOut } from "firebase/auth";
 import { toast } from "react-hot-toast";
 import { auth } from "../utils/firebase";
-import { authAPI } from "../lib/api";
+import { authAPI, userAPI } from "../lib/api"; // Added userAPI for refreshing profile
 
 const AuthContext = createContext(null);
 
@@ -19,6 +19,16 @@ export const AuthProvider = ({ children }) => {
 
   const hasShownToast = useRef(false);
 
+  // ✅ New: Method to manually refresh user data from DB (after joining events/updating bio)
+  const refreshUser = async () => {
+    try {
+      const res = await userAPI.getProfile();
+      setBackendUser(res.data.data);
+    } catch (err) {
+      console.error("Failed to refresh user data:", err);
+    }
+  };
+
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (fbUser) => {
       setLoading(true);
@@ -26,21 +36,26 @@ export const AuthProvider = ({ children }) => {
       if (!fbUser) {
         setFirebaseUser(null);
         setBackendUser(null);
+        localStorage.removeItem('idToken'); // 🗑️ Clear token
         setLoading(false);
         return;
       }
 
       try {
-        const idToken = await fbUser.getIdToken(); // ✅ no force refresh
+        const idToken = await fbUser.getIdToken(); 
+        
+        // 🗝️ Store token for Axios Interceptors to pick up
+        localStorage.setItem('idToken', idToken);
 
         const res = await authAPI.loginOrRegister(idToken);
 
         setFirebaseUser(fbUser);
-        setBackendUser(res.user);
+        // Ensure we are setting the full data object from our new production schema
+        setBackendUser(res.data.user || res.data);
 
         if (!hasShownToast.current) {
           toast.success(
-            res.isNewUser
+            res.data.isNewUser
               ? "Welcome! Account created 👋"
               : "Welcome back! ✅"
           );
@@ -48,7 +63,7 @@ export const AuthProvider = ({ children }) => {
         }
       } catch (err) {
         console.error("Backend auth failed:", err);
-        toast.error("Authentication failed");
+        localStorage.removeItem('idToken');
         await signOut(auth);
         setFirebaseUser(null);
         setBackendUser(null);
@@ -64,6 +79,7 @@ export const AuthProvider = ({ children }) => {
     await signOut(auth);
     setBackendUser(null);
     setFirebaseUser(null);
+    localStorage.removeItem('idToken'); // 🗑️ Clean up
     hasShownToast.current = false;
     toast.success("Logged out 👋");
   };
@@ -76,6 +92,7 @@ export const AuthProvider = ({ children }) => {
         isAuthenticated: !!backendUser,
         loading,
         logout,
+        refreshUser, // 🔄 Export this so components can update profile state
       }}
     >
       {children}

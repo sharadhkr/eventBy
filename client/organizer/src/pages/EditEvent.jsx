@@ -1,182 +1,210 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { getMyEvents, updateEvent } from "../api/event.api";
+import { organiserAPI } from "../api/event.api";
 import { toast } from "react-hot-toast";
+import { Loader2, Save, ArrowLeft, Image as ImageIcon } from "lucide-react";
 
 const EditEvent = () => {
-  const { id } = useParams(); // Event ID from URL
+  const { id } = useParams();
   const navigate = useNavigate();
 
-  const [eventData, setEventData] = useState({
+  const [form, setForm] = useState({
     title: "",
     description: "",
-    date: "",
-    time: "",
-    location: "",
-    price: "",
-    totalTickets: "",
+    eventDate: "",
+    registrationDeadline: "",
+    location: { address: "" },
+    ticketPrice: "",
+    totalCapacity: "",
     banner: "",
   });
 
   const [loading, setLoading] = useState(true);
+  const [updating, setUpdating] = useState(false);
 
-  // Fetch event data
-  const fetchEvent = async () => {
-    try {
-      setLoading(true);
-      const res = await getMyEvents(); // fetch all events
-      const event = res.data.events.find((e) => e._id === id);
-      if (!event) throw new Error("Event not found");
-      setEventData({
-        title: event.title,
-        description: event.description,
-        date: event.date.split("T")[0], // yyyy-mm-dd
-        time: event.time,
-        location: event.location,
-        price: event.ticketPrice || "",
-        totalTickets: event.totalSeats || "",
-        banner: event.banner || "",
-      });
-    } catch (err) {
-      console.error("FETCH EVENT ERROR:", err);
-      toast.error("Failed to load event data");
-    } finally {
-      setLoading(false);
-    }
-  };
-
+  // 1. Fetch event data and format it for HTML inputs
   useEffect(() => {
-    fetchEvent();
-  }, [id]);
+    const fetchEvent = async () => {
+      try {
+        setLoading(true);
+        const res = await organiserAPI.getMyEvents();
+        const event = res.data.data.find((e) => e._id === id);
+        
+        if (!event) throw new Error("Event not found");
 
-  // Handle form input changes
+        setForm({
+          title: event.title,
+          description: event.description,
+          // Format date to 'YYYY-MM-DDTHH:MM' for datetime-local input
+          eventDate: new Date(event.eventDate).toISOString().slice(0, 16),
+          registrationDeadline: new Date(event.registrationDeadline).toISOString().slice(0, 16),
+          location: { address: event.location?.address || "" },
+          ticketPrice: event.ticketPrice,
+          totalCapacity: event.totalCapacity,
+          banner: event.banner || "",
+        });
+      } catch (err) {
+        toast.error("Failed to load event data");
+        navigate("/organiser/manage-events");
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchEvent();
+  }, [id, navigate]);
+
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setEventData((prev) => ({ ...prev, [name]: value }));
-  };
-
-  // Handle banner upload
-  const handleBannerChange = (e) => {
-    const file = e.target.files[0];
-    if (file) {
-      setEventData((prev) => ({ ...prev, banner: file }));
+    if (name === "address") {
+      setForm(prev => ({ ...prev, location: { address: value } }));
+    } else {
+      setForm(prev => ({ ...prev, [name]: value }));
     }
   };
 
-  // Submit updated event
   const handleSubmit = async (e) => {
     e.preventDefault();
-
     try {
-      const formData = new FormData();
-      Object.entries(eventData).forEach(([key, value]) => {
-        formData.append(key, value);
-      });
-
-      await updateEvent(id, formData);
-      toast.success("Event updated successfully");
+      setUpdating(true);
+      await organiserAPI.updateEvent(id, form);
+      toast.success("Changes saved successfully!");
       navigate("/organiser/manage-events");
     } catch (err) {
-      console.error("UPDATE EVENT ERROR:", err);
-      toast.error("Failed to update event");
+      toast.error(err.response?.data?.message || "Update failed");
+    } finally {
+      setUpdating(false);
     }
   };
 
-  if (loading) return <div className="p-6">Loading event...</div>;
+  if (loading) return (
+    <div className="flex items-center justify-center h-screen">
+      <Loader2 className="animate-spin text-purple-600" size={40} />
+    </div>
+  );
 
   return (
-    <div className="max-w-3xl mx-auto p-6">
-      <h1 className="text-2xl font-bold mb-6">Edit Event</h1>
-      <form onSubmit={handleSubmit} className="space-y-4">
-        <input
-          type="text"
-          name="title"
-          placeholder="Title"
-          value={eventData.title}
-          onChange={handleChange}
-          className="w-full border rounded px-3 py-2"
-          required
-        />
+    <div className="max-w-4xl mx-auto p-6 bg-slate-50 min-h-screen">
+      <button 
+        onClick={() => navigate(-1)} 
+        className="flex items-center gap-2 text-slate-500 hover:text-slate-800 mb-6 transition-colors"
+      >
+        <ArrowLeft size={18} /> Back to Manage
+      </button>
 
-        <textarea
-          name="description"
-          placeholder="Description"
-          value={eventData.description}
-          onChange={handleChange}
-          className="w-full border rounded px-3 py-2"
-          required
-        />
+      <div className="bg-white rounded-[2.5rem] shadow-sm border border-slate-100 p-8">
+        <header className="mb-8">
+          <h1 className="text-3xl font-black text-slate-900">Edit Event</h1>
+          <p className="text-slate-500">Update your event details and settings</p>
+        </header>
 
-        <input
-          type="date"
-          name="date"
-          value={eventData.date}
-          onChange={handleChange}
-          className="w-full border rounded px-3 py-2"
-          required
-        />
+        <form onSubmit={handleSubmit} className="space-y-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="md:col-span-2">
+              <label className="block text-xs font-bold uppercase text-slate-400 mb-2 ml-1">Event Title</label>
+              <input
+                name="title"
+                value={form.title}
+                onChange={handleChange}
+                className="w-full p-4 bg-slate-50 rounded-2xl border-none focus:ring-2 focus:ring-purple-500"
+                required
+              />
+            </div>
 
-        <input
-          type="time"
-          name="time"
-          value={eventData.time}
-          onChange={handleChange}
-          className="w-full border rounded px-3 py-2"
-          required
-        />
+            <div className="md:col-span-2">
+              <label className="block text-xs font-bold uppercase text-slate-400 mb-2 ml-1">Description</label>
+              <textarea
+                name="description"
+                value={form.description}
+                onChange={handleChange}
+                rows="4"
+                className="w-full p-4 bg-slate-50 rounded-2xl border-none focus:ring-2 focus:ring-purple-500"
+                required
+              />
+            </div>
 
-        <input
-          type="text"
-          name="location"
-          placeholder="Location"
-          value={eventData.location}
-          onChange={handleChange}
-          className="w-full border rounded px-3 py-2"
-          required
-        />
+            <div>
+              <label className="block text-xs font-bold uppercase text-slate-400 mb-2 ml-1">Event Date & Time</label>
+              <input
+                type="datetime-local"
+                name="eventDate"
+                value={form.eventDate}
+                onChange={handleChange}
+                className="w-full p-4 bg-slate-50 rounded-2xl border-none"
+                required
+              />
+            </div>
 
-        <input
-          type="number"
-          name="price"
-          placeholder="Ticket Price"
-          value={eventData.price}
-          onChange={handleChange}
-          className="w-full border rounded px-3 py-2"
-          required
-        />
+            <div>
+              <label className="block text-xs font-bold uppercase text-slate-400 mb-2 ml-1">Registration Deadline</label>
+              <input
+                type="datetime-local"
+                name="registrationDeadline"
+                value={form.registrationDeadline}
+                onChange={handleChange}
+                className="w-full p-4 bg-slate-50 rounded-2xl border-none"
+                required
+              />
+            </div>
 
-        <input
-          type="number"
-          name="totalTickets"
-          placeholder="Total Tickets"
-          value={eventData.totalTickets}
-          onChange={handleChange}
-          className="w-full border rounded px-3 py-2"
-          required
-        />
+            <div className="md:col-span-2">
+              <label className="block text-xs font-bold uppercase text-slate-400 mb-2 ml-1">Location Address</label>
+              <input
+                name="address"
+                value={form.location.address}
+                onChange={handleChange}
+                className="w-full p-4 bg-slate-50 rounded-2xl border-none"
+                required
+              />
+            </div>
 
-        <input
-          type="file"
-          name="banner"
-          accept="image/*"
-          onChange={handleBannerChange}
-          className="w-full"
-        />
-        {eventData.banner && typeof eventData.banner === "string" && (
-          <img
-            src={eventData.banner}
-            alt="Current banner"
-            className="w-full h-48 object-cover rounded mt-2"
-          />
-        )}
+            <div>
+              <label className="block text-xs font-bold uppercase text-slate-400 mb-2 ml-1">Price ($)</label>
+              <input
+                type="number"
+                name="ticketPrice"
+                value={form.ticketPrice}
+                onChange={handleChange}
+                className="w-full p-4 bg-slate-50 rounded-2xl border-none"
+                required
+              />
+            </div>
 
-        <button
-          type="submit"
-          className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 transition"
-        >
-          Update Event
-        </button>
-      </form>
+            <div>
+              <label className="block text-xs font-bold uppercase text-slate-400 mb-2 ml-1">Capacity</label>
+              <input
+                type="number"
+                name="totalCapacity"
+                value={form.totalCapacity}
+                onChange={handleChange}
+                className="w-full p-4 bg-slate-50 rounded-2xl border-none"
+                required
+              />
+            </div>
+          </div>
+
+          <div className="bg-slate-50 p-6 rounded-3xl border border-dashed border-slate-200">
+            <label className="block text-xs font-bold uppercase text-slate-400 mb-4 ml-1">Current Banner</label>
+            {form.banner ? (
+              <div className="relative rounded-2xl overflow-hidden group">
+                <img src={form.banner} alt="Preview" className="w-full h-48 object-cover" />
+                <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
+                   <p className="text-white text-xs font-bold flex items-center gap-2"><ImageIcon size={16}/> Banner is Locked</p>
+                </div>
+              </div>
+            ) : (
+              <div className="h-48 bg-slate-100 rounded-2xl flex items-center justify-center text-slate-400">No banner</div>
+            )}
+          </div>
+
+          <button
+            type="submit"
+            disabled={updating}
+            className="w-full bg-slate-900 text-white p-5 rounded-2xl font-bold flex items-center justify-center gap-2 hover:bg-black transition-all disabled:opacity-50"
+          >
+            {updating ? <Loader2 className="animate-spin" /> : <><Save size={20} /> Save Changes</>}
+          </button>
+        </form>
+      </div>
     </div>
   );
 };

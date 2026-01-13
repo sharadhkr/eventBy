@@ -1,16 +1,38 @@
 import axios from "axios";
 
+// Base instance
 const API = axios.create({
-  baseURL: "http://localhost:3000/api/organiser/event",
-  withCredentials: true, // JWT cookie
+  baseURL: import.meta.env.VITE_API_URL || "http://localhost:3000/api",
+  withCredentials: true, // Crucial for sending JWT Cookies
 });
 
-export const getMyEvents = () => API.get("/");
+/**
+ * ORGANISER EVENT ACTIONS
+ */
+export const organiserAPI = {
+  // GET: /api/organiser/event/my-events
+  getMyEvents: () => API.get("/organiser/event/my-events"),
 
-export const createEvent = (data) => API.post("/", data);
+  // POST: /api/organiser/event/create
+  createEvent: (data) => API.post("/event", data),
 
-export const updateEvent = (id, data) =>
-  API.put(`/${id}`, data);
+  // PATCH: /api/organiser/event/update/:id
+  // Changed from PUT to PATCH for partial updates (Production Standard)
+  updateEvent: (id, data) => API.patch(`/organiser/event/update/${id}`, data),
 
-export const deleteEvent = (id) =>
-  API.delete(`/${id}`);
+  // DELETE: /api/organiser/event/delete/:id
+  deleteEvent: (id) => API.delete(`/organiser/event/delete/${id}`),
+};
+
+/**
+ * PUBLIC EVENT ACTIONS (For AnalogDatePicker)
+ */
+export const publicEventAPI = {
+  // GET: /api/events (Fetch all published events)
+  getAllEvents: () => API.get("/events"),
+  
+  // GET: /api/events/:id
+  getEventDetails: (id) => API.get(`/events/${id}`),
+};
+
+export default API;
