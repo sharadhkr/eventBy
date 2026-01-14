@@ -2,8 +2,8 @@ import React from 'react';
 
 function Topbar() {
   return (
-    <div className="relative">
-        <div className=" relative flex items-center justify-between px-3 py-3 backdrop-blur-xl z-500 drop-shadow-xl bg-white m-2 rounded-3xl">
+    <div className="relative w-full">
+        <div className=" relative flex items-center justify-between px-3 py-3 backdrop-blur-xl z-500 drop-shadow-xl bg-white mt-4 m-2 rounded-3xl">
       {/* Left Section: User Profile */}
       <div className="flex items-center gap-3">
         <div className="relative">

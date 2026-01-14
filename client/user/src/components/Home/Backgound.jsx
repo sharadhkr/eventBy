@@ -2,7 +2,7 @@ import React from 'react';
 
 const Background = () => {
   return (
-    <div className="fixed -z-10  inset-0 w-full h-full bg-white">
+    <div className="fixed -z-10  inset-0 w-lvh h-full bg-white">
       {/* This uses a CSS gradient to create thin, subtle lines.
           The lines are set to 5% black (slate-900) to keep them "light and thin".
       */}

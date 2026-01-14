@@ -3,36 +3,43 @@ import axios from "axios";
 // Base instance
 const API = axios.create({
   baseURL: import.meta.env.VITE_API_URL || "http://localhost:3000/api",
-  withCredentials: true, // Crucial for sending JWT Cookies
+  withCredentials: true, 
 });
 
 /**
  * ORGANISER EVENT ACTIONS
  */
 export const organiserAPI = {
-  // GET: /api/organiser/event/my-events
-  getMyEvents: () => API.get("/organiser/event/my-events"),
+  // GET: Organiser's own events
+  getMyEvents: () => API.get("/event/"),
 
-  // POST: /api/organiser/event/create
-  createEvent: (data) => API.post("/event", data),
+  // POST: Create Event (Supports Multipart/Form-Data for Banner)
+  createEvent: (formData) => API.post("/event/", formData, {
+    headers: {
+      "Content-Type": "multipart/form-data",
+    },
+  }),
 
-  // PATCH: /api/organiser/event/update/:id
-  // Changed from PUT to PATCH for partial updates (Production Standard)
-  updateEvent: (id, data) => API.patch(`/organiser/event/update/${id}`, data),
+  // PATCH: Update Event (Supports Multipart/Form-Data for Banner update)
+  updateEvent: (id, formData) => API.patch(`/event/update/${id}`, formData, {
+    headers: {
+      "Content-Type": "multipart/form-data",
+    },
+  }),
 
-  // DELETE: /api/organiser/event/delete/:id
-  deleteEvent: (id) => API.delete(`/organiser/event/delete/${id}`),
+  // DELETE: Remove Event
+  deleteEvent: (id) => API.delete(`/event/delete/${id}`),
 };
 
 /**
- * PUBLIC EVENT ACTIONS (For AnalogDatePicker)
+ * PUBLIC EVENT ACTIONS
  */
 export const publicEventAPI = {
-  // GET: /api/events (Fetch all published events)
-  getAllEvents: () => API.get("/events"),
+  // GET: Fetch all published events
+  getAllEvents: () => API.get("/event"), // Note: Ensure this matches your route name (e.g. /event/all)
   
-  // GET: /api/events/:id
-  getEventDetails: (id) => API.get(`/events/${id}`),
+  // GET: Single event details
+  getEventDetails: (id) => API.get(`/event/${id}`),
 };
 
 export default API;

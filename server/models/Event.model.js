@@ -80,12 +80,12 @@ const eventSchema = new mongoose.Schema(
     },
     winningPrize: {
       pool: { type: Number, default: 0 },
-      description: { type: String }, // e.g., "Trophy + $500"
+      description: { type: String },
     },
     // Media & Location
     banner: {
       type: String,
-      default: "placehold.co",
+      default: "https://placehold.co/600x400/png",
     },
     location: {
       type: {
@@ -94,7 +94,7 @@ const eventSchema = new mongoose.Schema(
         default: "Point",
       },
       address: { type: String, required: true },
-      coordinates: [Number], // [longitude, latitude]
+      coordinates: { type: [Number], default: [0, 0] }, // [longitude, latitude]
     },
     // Participants Tracking
     participants: [participantSchema],
@@ -119,14 +119,23 @@ const eventSchema = new mongoose.Schema(
 // Geo-spatial index for "Events near me"
 eventSchema.index({ location: "2dsphere" });
 
-// Virtual to check if event is full
+// Virtuals
 eventSchema.virtual("isFull").get(function () {
   return this.soldSeats >= this.totalCapacity;
 });
 
-// Virtual to check if registration is expired
 eventSchema.virtual("isExpired").get(function () {
   return new Date() > this.registrationDeadline;
+});
+
+// Pre-save middleware (async-safe) to increment organiser's totalEventsCreated
+eventSchema.pre("save", async function () {
+  if (this.isNew) {
+    await this.model("Organiser").findByIdAndUpdate(
+      this.organiser,
+      { $inc: { totalEventsCreated: 1 } }
+    );
+  }
 });
 
 module.exports = mongoose.model("Event", eventSchema);

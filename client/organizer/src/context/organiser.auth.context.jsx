@@ -1,17 +1,10 @@
+// client/src/context/OrganiserAuthContext.jsx
 import { createContext, useContext, useEffect, useState } from "react";
-import { getMe, logoutOrganiser } from "../api/api";
+import { organiserAPI } from "../api/api";
 
 const OrganiserAuthContext = createContext(null);
 
-export const useOrganiserAuth = () => {
-  const ctx = useContext(OrganiserAuthContext);
-  if (!ctx) {
-    throw new Error(
-      "useOrganiserAuth must be used inside OrganiserAuthProvider"
-    );
-  }
-  return ctx;
-};
+export const useOrganiserAuth = () => useContext(OrganiserAuthContext);
 
 export const OrganiserAuthProvider = ({ children }) => {
   const [organiser, setOrganiser] = useState(null);
@@ -19,10 +12,9 @@ export const OrganiserAuthProvider = ({ children }) => {
 
   const fetchMe = async () => {
     try {
-      const res = await getMe();
-      setOrganiser(res.data.organiser);
-    } catch (error) {
-      console.error("AUTH CHECK FAILED:", error?.response?.data || error);
+      const { data } = await organiserAPI.getMe();
+      setOrganiser(data.data);
+    } catch {
       setOrganiser(null);
     } finally {
       setLoading(false);
@@ -34,22 +26,11 @@ export const OrganiserAuthProvider = ({ children }) => {
   }, []);
 
   const logout = async () => {
-    try {
-      await logoutOrganiser();
-    } catch (err) {
-      console.error("LOGOUT ERROR:", err);
-    } finally {
-      setOrganiser(null);
-    }
+    await organiserAPI.logout();
+    setOrganiser(null);
   };
 
-  const value = {
-    organiser,
-    loading,
-    isAuth: !!organiser,
-    logout,
-    refetchAuth: fetchMe, // 🔥 useful after login/register
-  };
+  const value = { organiser, loading, logout, refetch: fetchMe };
 
   return (
     <OrganiserAuthContext.Provider value={value}>

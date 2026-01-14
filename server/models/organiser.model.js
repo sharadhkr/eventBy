@@ -1,3 +1,4 @@
+// server/models/Organiser.model.js
 const mongoose = require("mongoose");
 const bcrypt = require("bcryptjs");
 
@@ -25,36 +26,27 @@ const organiserSchema = new mongoose.Schema(
       type: String, 
       required: [true, "Password is required"],
       minlength: [8, "Password must be at least 8 characters"],
-      select: false // Prevents password from leaking in API calls by default
+      select: false
     },
     phone: { 
       type: String, 
       required: [true, "Phone number is required"],
       unique: true 
     },
-    // Branding & Verification
     logo: { 
       type: String, 
-      default: "api.dicebear.com" 
+      default: "https://api.dicebear.com/7.x/initials/svg?seed=Org" 
     },
     website: { type: String },
     bio: { type: String, maxlength: 500 },
-    
-    // Status Logic
-    isVerified: { 
-      type: Boolean, 
-      default: false // Set to true after manual document check
-    },
+    isVerified: { type: Boolean, default: false },
     isActive: { type: Boolean, default: true },
-    
-    // Analytics & Social
     totalEventsCreated: { type: Number, default: 0 },
     rating: {
       average: { type: Number, default: 0 },
       count: { type: Number, default: 0 }
     },
     followers: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
-
     lastLogin: Date,
     address: {
       street: String,
@@ -63,24 +55,22 @@ const organiserSchema = new mongoose.Schema(
       zipCode: String
     }
   },
-  { timestamps: true, toJSON: { virtuals: true } }
+  { timestamps: true, toJSON: { virtuals: true }, toObject: { virtuals: true } }
 );
 
-// 1. Password Hashing Middleware
-organiserSchema.pre("save", async function (next) {
-  if (!this.isModified("password")) return next();
+// ✅ Fixed pre-save hook for Mongoose >= 6
+organiserSchema.pre("save", async function () {
+  if (!this.isModified("password")) return;
   this.password = await bcrypt.hash(this.password, 12);
-  next();
 });
 
-// 2. Instance Method to check password
-organiserSchema.methods.correctPassword = async function (candidatePassword, userPassword) {
-  return await bcrypt.compare(candidatePassword, userPassword);
+// Instance method to check password
+organiserSchema.methods.correctPassword = async function (candidatePassword) {
+  return bcrypt.compare(candidatePassword, this.password);
 };
 
-// 3. Virtual for follower count
+// Virtual for follower count
 organiserSchema.virtual('followerCount').get(function() {
-  // Use ?. and fallback to 0
   return this.followers?.length || 0; 
 });
 

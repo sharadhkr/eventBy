@@ -65,7 +65,7 @@ const AnalogDatePicker = () => {
   });
 
   return (
-    <div className="relative w-full flex mb-20 flex-col items-center select-none font-sans bg-white overflow-x-hidden">
+    <div className="relative w-full flex mb-20 flex-col items-center select-none font-sans overflow-x-hidden">
       
       {/* Mesh Background */}
       <div className="absolute inset-0 -z-10 overflow-hidden">

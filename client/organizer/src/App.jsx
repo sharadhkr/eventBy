@@ -1,27 +1,38 @@
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+// client/src/App.jsx
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { Toaster } from 'react-hot-toast';
+
+import { OrganiserAuthProvider } from "./context/organiser.auth.context";
+import OrganiserProtectedRoute from "./middleware/OrganiserProtectedRoute";
+
 import Login from "./pages/Login";
 import Register from "./pages/Register";
 import Dashboard from "./pages/Dashboard";
-import OrganiserProtectedRoute from "./middleware/OrganiserProtectedRoute.jsx";
-import { OrganiserAuthProvider } from "./context/organiser.auth.context";
-import CreateEvent from "./pages/CreateEvent.jsx";
-import ManageEvents from "./pages/ManageEvents.jsx";
-import EditEvent from "./pages/EditEvent.jsx";
+import CreateEvent from "./pages/CreateEvent";
+import ManageEvents from "./pages/ManageEvents";
+import EditEvent from "./pages/EditEvent";
+import EditProfile from "./pages/EditProfile";
+import Analytics from "./pages/Analytics";
 
 export default function App() {
   return (
     <BrowserRouter>
       <OrganiserAuthProvider>
+        <Toaster position="top-center" />
         <Routes>
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
 
-          <Route path="/dashboard" element={<Dashboard />} />
-          
-          <Route path="/events/create" element={<CreateEvent/>} />
-          <Route path="/events/edit/:id" element={<EditEvent/>} />
-          <Route path="/events/manage" element={<ManageEvents/>} />
+          <Route element={<OrganiserProtectedRoute />}>
+            <Route path="/" element={<Dashboard />} />
+            <Route path="/events/create" element={<CreateEvent />} />
+            <Route path="/events/manage" element={<ManageEvents />} />
+            <Route path="/events/edit/:id" element={<EditEvent />} />
+            <Route path="/profile/edit" element={<EditProfile />} />
+            <Route path="/analytics" element={<Analytics />} />
+          </Route>
 
+          <Route path="*" element={<Navigate to="/login" replace />} />
         </Routes>
       </OrganiserAuthProvider>
     </BrowserRouter>

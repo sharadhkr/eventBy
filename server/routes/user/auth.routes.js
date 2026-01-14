@@ -13,6 +13,7 @@ router.patch("/update-profile", firebaseMiddleware.verifyFirebaseToken, userCont
 
 // Event Functionalities
 router.post("/join-event/:eventId", firebaseMiddleware.verifyFirebaseToken, userController.joinEvent);
+router.get("/organisers", userController.getTopOrganisers);
 router.get("/my-events", firebaseMiddleware.verifyFirebaseToken, userController.getMyEvents);
 router.get("/events", userController.getAllEvents)
 // Professional / Resume

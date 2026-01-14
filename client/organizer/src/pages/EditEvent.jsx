@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { organiserAPI } from "../api/event.api";
+import { organiserAPI } from "../api/api";
 import { toast } from "react-hot-toast";
 import { Loader2, Save, ArrowLeft, Image as ImageIcon } from "lucide-react";
 

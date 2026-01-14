@@ -39,6 +39,7 @@ export const userAPI = {
 
   // Get only user's joined events
   getMyEvents: () => api.get('/auth/my-events'),
+  getOragnisers: () => api.get('/auth/oragnisers'),
   
   // Join an event (Triggers validations on backend)
   joinEvent: (eventId) => api.post(`/auth/join-event/${eventId}`),

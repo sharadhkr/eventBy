@@ -1,5 +1,6 @@
 const User = require("../../models/User.model");
 const Event = require("../../models/Event.model");
+const Organiser = require("../../models/organiser.model");
 
 // @desc    Get full profile with joined events
 // @route   GET /api/users/profile
@@ -115,5 +116,30 @@ exports.updateResume = async (req, res) => {
     res.status(200).json({ message: "Resume updated", resume: user.resume });
   } catch (error) {
     res.status(400).json({ message: error.message });
+  }
+};
+
+// controllers/organiserController.js
+
+exports.getTopOrganisers = async (req, res) => {
+  try {
+    // 1. Fetch organisers sorted by followerCount descending
+    const organisers = await Organiser.find({})
+      .select("organisationName logo bio followerCount")
+      .sort({ followerCount: -1 }) // Top followed first
+      .limit(10); 
+
+    if (!organisers || organisers.length === 0) {
+      return res.status(200).json({ success: true, data: [] });
+    }
+
+    res.status(200).json({ 
+      success: true, 
+      count: organisers.length,
+      data: organisers 
+    });
+  } catch (error) {
+    console.error("Backend getTopOrganisers Error:", error.message);
+    res.status(500).json({ success: false, message: error.message });
   }
 };
