@@ -9,6 +9,7 @@ const {
   updateEvent,
   deleteEvent,
   getEventAnalytics,
+  toggleEventStatus, // 👈 ADD THIS
 } = require("../../controllers/event/controller");
 
 const protectOrganiser = require("../../middlewares/organiser/auth.middleware");
@@ -18,5 +19,8 @@ router.get("/", protectOrganiser, getMyEvents);
 router.put("/:id", protectOrganiser, upload.single("banner"), updateEvent);
 router.delete("/:id", protectOrganiser, deleteEvent);
 router.get("/:id/analytics", protectOrganiser, getEventAnalytics);
+
+// ✅ NEW: Pause / Publish
+router.patch("/:id/status", protectOrganiser, toggleEventStatus);
 
 module.exports = router;

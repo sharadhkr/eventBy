@@ -6,6 +6,8 @@ import Tickets from "../pages/Home";
 import Profile from "../pages/Home";
 import ProtectedRoute from "../middleware/ProtectedRoute";
 import MainLayout from "../layouts/NavLayout";
+import EditProfile from "../pages/EditProfilepage";
+import ProfilePage from "../pages/profile/ProfilePage";
 
 export default function AppRoutes() {
   return (
@@ -25,8 +27,8 @@ export default function AppRoutes() {
           <Route path="/home" element={<Home />} />
           <Route path="/events" element={<Events />} />
           <Route path="/tickets" element={<Tickets />} />
-          <Route path="/profile" element={<Profile />} />
-          <Route path="/payments" element={<Profile />} />
+          <Route path="/profile" element={<ProfilePage/>} />
+          <Route path="/editprofile" element={<EditProfile/>} />
         </Route>
 
         {/* Redirect */}

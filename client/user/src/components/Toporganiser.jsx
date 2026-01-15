@@ -10,7 +10,7 @@ const TopOrganisations = () => {
   useEffect(() => {
     const fetchTopOrgs = async () => {
       try {
-        const res = await userAPI.get('/auth/organisers');
+        const res = await userAPI.get('/users/organisers');
         setOrganisers(res.data.data || []);
       } catch (err) {
         console.error("Error fetching top orgs", err);

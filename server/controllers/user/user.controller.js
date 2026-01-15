@@ -1,6 +1,7 @@
 const User = require("../../models/User.model");
 const Event = require("../../models/Event.model");
 const Organiser = require("../../models/organiser.model");
+const cloudinary = require("../../config/cloudinary");
 
 // @desc    Get full profile with joined events
 // @route   GET /api/users/profile
@@ -20,21 +21,56 @@ exports.getProfile = async (req, res) => {
 
 // @desc    Update basic profile and social links
 // @route   PATCH /api/users/update-profile
+
+// @desc Update user profile (SAFE)
 exports.updateProfile = async (req, res) => {
   try {
-    const updates = req.body;
-    
-    const user = await User.findOneAndUpdate(
-      { uid: req.user.uid },
-      { $set: updates },
-      { new: true, runValidators: true }
-    );
+    if (!req.user || !req.user.uid) {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
 
-    res.status(200).json({ message: "Profile updated", data: user });
+    const user = await User.findOne({ uid: req.user.uid });
+    if (!user) return res.status(404).json({ message: "User not found" });
+
+    const { displayName, skills, portfolio } = req.body;
+
+    if (displayName !== undefined) {
+      user.displayName = displayName;
+    }
+
+    if (skills) {
+      user.skills = Array.isArray(skills) ? skills : JSON.parse(skills);
+    }
+
+    if (portfolio) {
+      const parsed =
+        typeof portfolio === "string" ? JSON.parse(portfolio) : portfolio;
+
+      user.portfolio = {
+        ...user.portfolio,
+        ...parsed,
+      };
+    }
+
+    // ✅ IMPORTANT: NO CLOUDINARY CALL HERE
+    if (req.file) {
+      user.photoURL = req.file.path;       // Cloudinary URL
+      user.photoPublicId = req.file.filename; // optional
+    }
+
+    await user.save();
+
+    res.status(200).json({
+      success: true,
+      message: "Profile updated successfully",
+      data: user,
+    });
   } catch (error) {
+    console.error("Update profile error:", error);
     res.status(400).json({ message: error.message });
   }
 };
+
 
 // @desc    Join an event with capacity & deadline checks
 // @route   POST /api/users/join-event/:eventId

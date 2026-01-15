@@ -20,12 +20,22 @@ exports.createEvent = async (req, res) => {
 
 exports.getMyEvents = async (req, res) => {
   try {
-    const events = await Event.find({ organiser: req.organiser._id }).sort({ createdAt: -1 }).lean();
-    res.json({ success: true, count: events.length, data: events });
+    const events = await Event.find({
+      organiser: req.organiser._id,
+    })
+      .sort({ createdAt: -1 })
+      .lean();
+
+    res.json({
+      success: true,
+      count: events.length,
+      data: events,
+    });
   } catch (err) {
     res.status(500).json({ message: "Failed to fetch events" });
   }
 };
+
 
 exports.updateEvent = async (req, res) => {
   try {
@@ -74,5 +84,27 @@ exports.getEventAnalytics = async (req, res) => {
     res.json({ success: true, data: analytics });
   } catch (err) {
     res.status(500).json({ message: "Analytics fetch failed" });
+  }
+};exports.toggleEventStatus = async (req, res) => {
+  try {
+    const event = await Event.findOne({
+      _id: req.params.id,
+      organiser: req.organiser._id,
+    });
+
+    if (!event) {
+      return res.status(404).json({ message: "Event not found" });
+    }
+
+    event.status = event.status === "published" ? "draft" : "published";
+    await event.save();
+
+    res.json({
+      success: true,
+      status: event.status,
+    });
+  } catch (err) {
+    console.error("Toggle Status Error:", err);
+    res.status(500).json({ message: "Failed to update event status" });
   }
 };

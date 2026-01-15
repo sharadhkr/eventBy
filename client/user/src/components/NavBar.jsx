@@ -124,82 +124,142 @@
 // };
 
 // export default NavBar;
+import React, { useEffect } from "react";
+import { Home, User } from "lucide-react";
+import { useNavigate, useLocation } from "react-router-dom";
+import {
+  motion,
+  useMotionValue,
+  useSpring,
+  useTransform,
+} from "framer-motion";
 
-import React, { useState } from "react";
-import { Home, User, Fingerprint } from "lucide-react";
-import { motion, useMotionValue, useSpring, useTransform, useScroll, useMotionValueEvent, AnimatePresence } from "framer-motion";
+const GlassLiquidNavBar = () => {
+  const navigate = useNavigate();
+  const location = useLocation();
 
-const SpringSliderNavBar = () => {
-  const [hidden, setHidden] = useState(false);
-  const { scrollY } = useScroll();
-
-  // Scroll visibility logic
-  useMotionValueEvent(scrollY, "change", (latest) => {
-    const previous = scrollY.getPrevious();
-    if (latest > previous && latest > 50) setHidden(true);
-    else setHidden(false);
-  });
-
+  /* Ball motion (fast) */
   const x = useMotionValue(0);
 
-  // Adjusted physics for a satisfying "Snap"
-  const springX = useSpring(x, { 
-    stiffness: 800, 
-    damping: 35, 
-    mass: 0.5 
+  /* Liquid motion (slow & viscous) */
+  const liquidX = useSpring(x, {
+    stiffness: 70,
+    damping: 30,
+    mass: 1.8,
   });
 
-  const barStretch = useTransform(x, [-100, 0, 100], [1.1, 1, 1.1]);
-  const leftOpacity = useTransform(x, [-80, -20], [1, 0.4]);
-  const rightOpacity = useTransform(x, [20, 80], [0.4, 1]);
+  const THRESHOLD = 90;
+
+  /* Fill scale */
+  const fillScale = useTransform(liquidX, [-140, 0, 140], [1, 0, 1]);
+
+  /* Labels */
+  const leftLabelOpacity = useTransform(liquidX, [-120, -40], [1, 0]);
+  const rightLabelOpacity = useTransform(liquidX, [40, 120], [0, 1]);
+
+  /* Keep filled based on route */
+  useEffect(() => {
+    if (location.pathname === "/profile") {
+      x.set(-140);
+    } else if (location.pathname === "/home") {
+      x.set(140);
+    } else {
+      x.set(0);
+    }
+  }, [location.pathname]);
 
   const handleDragEnd = (_, info) => {
-    const threshold = 80;
-    
-    if (info.offset.x > threshold) {
-        // navigate("/home");
-    } else if (info.offset.x < -threshold) {
-        // navigate("/profile");
+    if (info.offset.x < -THRESHOLD) {
+      x.set(-140);
+      setTimeout(() => navigate("/profile"), 350);
+    } else if (info.offset.x > THRESHOLD) {
+      x.set(140);
+      setTimeout(() => navigate("/home"), 350);
+    } else {
+      x.set(0);
     }
-
-    // This is the "Automatic Return" logic
-    x.set(0);
   };
 
+  const isLeft = location.pathname === "/profile";
+  const isRight = location.pathname === "/home";
+
   return (
-    <AnimatePresence>
-      {!hidden && (
-        <motion.div
-          initial={{ y: 100, opacity: 0 }}
-          animate={{ y: 0, opacity: 1 }}
-          exit={{ y: 100, opacity: 0 }}
-          className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[100] w-full max-w-[350px] px-4"
-        >
-          <motion.nav
-            style={{ scaleX: barStretch }}
-            className="relative h-14 bg-stone-500/20 backdrop-blur-3xl rounded-2xl overflow-hidden shadow-xl flex items-center justify-between px-10"
-          >
-            <motion.div style={{ opacity: leftOpacity }}><User size={22} className="text-slate-400" /></motion.div>
+    <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50">
+      <div className="relative w-[360px] h-16 rounded-full overflow-hidden">
 
-            <div className="absolute left-1/2 -translate-x-1/2 flex items-center justify-center w-full h-full pointer-events-none">
-              <motion.div
-                drag="x"
-                dragConstraints={{ left: 0, right: 0 }} // Constraints at 0 forces it to want to stay at center
-                dragElastic={0.9} // High elasticity allows movement but pulls back like a spring
-                onDragEnd={handleDragEnd}
-                style={{ x: springX }}
-                className="pointer-events-auto cursor-grab active:cursor-grabbing w-12 h-12 bg-stone-600 rounded-2xl flex items-center justify-center shadow-2xl"
-              >
-                <Fingerprint size={24} className="text-white" />
-              </motion.div>
-            </div>
+        {/* 🧊 GLASS TUBE */}
+        <div className="absolute inset-0 rounded-full bg-white/25 backdrop-blur-xl border border-white/40 shadow-[inset_0_0_18px_rgba(255,255,255,0.6)]" />
 
-            <motion.div style={{ opacity: rightOpacity }}><Home size={22} className="text-slate-900" /></motion.div>
-          </motion.nav>
-        </motion.div>
-      )}
-    </AnimatePresence>
+        {/* 🌊 LIQUID BASE */}
+        {(isLeft || isRight) && (
+          <motion.div
+            style={{
+              scaleX: fillScale,
+              transformOrigin: isLeft ? "left" : "right",
+            }}
+            className={`absolute inset-0 ${
+              isLeft
+                ? "bg-gradient-to-r from-purple-400 via-purple-300 to-purple-400"
+                : "bg-gradient-to-l from-teal-400 via-cyan-300 to-teal-400"
+            }`}
+          />
+        )}
+
+        {/* ✨ LIQUID HIGHLIGHT (MENISCUS EFFECT) */}
+        {(isLeft || isRight) && (
+          <motion.div
+            style={{
+              scaleX: fillScale,
+              transformOrigin: isLeft ? "left" : "right",
+            }}
+            className="absolute inset-0 bg-gradient-to-b from-white/35 via-white/10 to-transparent pointer-events-none"
+          />
+        )}
+
+        {/* 🌫 INNER SHADOW DEPTH */}
+        <div className="absolute inset-0 rounded-full shadow-[inset_0_-6px_12px_rgba(0,0,0,0.15)] pointer-events-none" />
+
+        {/* CONTENT */}
+        <div className="relative z-10 h-full flex items-center justify-between px-8 text-gray-700">
+
+          {/* PROFILE */}
+          <div className="flex items-center gap-2">
+            <User size={22} />
+            <motion.span
+              style={{ opacity: leftLabelOpacity }}
+              className="text-sm font-medium"
+            >
+              Profile
+            </motion.span>
+          </div>
+
+          {/* ⚪ WHITE LIQUID BALL */}
+          <div className="absolute left-1/2 -translate-x-1/2">
+            <motion.div
+              drag="x"
+              dragConstraints={{ left: 0, right: 0 }}
+              dragElastic={0.55}
+              onDragEnd={handleDragEnd}
+              style={{ x }}
+              className="w-14 h-14 rounded-full bg-white shadow-[0_12px_30px_rgba(0,0,0,0.25)] cursor-grab active:cursor-grabbing"
+            />
+          </div>
+
+          {/* HOME */}
+          <div className="flex items-center gap-2">
+            <motion.span
+              style={{ opacity: rightLabelOpacity }}
+              className="text-sm font-medium"
+            >
+              Home
+            </motion.span>
+            <Home size={22} />
+          </div>
+
+        </div>
+      </div>
+    </div>
   );
 };
 
-export default SpringSliderNavBar;
+export default GlassLiquidNavBar;

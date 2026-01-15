@@ -1,6 +1,5 @@
 import { useState, useEffect } from "react";
-import { organiserAPI } from "../api/event.api"; // Ensure this uses axios and supports multipart/form-data
-import EventCard from "../components/EventCard";
+import { organiserEventAPI  } from "../api/event.api"; // Ensure this uses axios and supports multipart/form-data
 import { toast } from "react-hot-toast";
 import { Loader2, UploadCloud, MapPin, Trophy, Users, Calendar, Info } from "lucide-react";
 
@@ -75,7 +74,7 @@ const CreateEvent = () => {
     });
 
     // ✅ FIX: Use the specific method from your API object
-    await organiserAPI.createEvent(formData); 
+    await organiserEventAPI .createEvent(formData); 
     
     toast.success("Event Published Successfully! 🚀");
   } catch (err) {
@@ -185,27 +184,6 @@ const CreateEvent = () => {
         </div>
 
         {/* Right: Sticky Preview */}
-        <div className="lg:col-span-2">
-          <div className="sticky top-10 space-y-6">
-            <p className="font-black text-slate-400 uppercase text-[10px] tracking-[0.2em] ml-2">Real-time Preview</p>
-            <EventCard 
-              image={form.banner}
-              title={form.title || "Your Event Title"}
-              price={form.ticketPrice}
-              date={form.eventDate || "Date TBD"}
-              location={form.location.address || "Location TBD"}
-              mode={form.mode}
-            />
-            <div className="bg-indigo-600 p-6 rounded-[2rem] text-white shadow-lg shadow-indigo-100">
-                <div className="flex items-center gap-2 mb-2 font-bold italic">
-                    <Info size={16}/> Tips
-                </div>
-                <p className="text-[11px] leading-relaxed opacity-90">
-                    Banners with less text and high resolution (16:9) perform better. Make sure your registration deadline is at least 24 hours before the event starts.
-                </p>
-            </div>
-          </div>
-        </div>
       </div>
     </div>
   );

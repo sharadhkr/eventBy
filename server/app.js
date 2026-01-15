@@ -26,7 +26,7 @@ app.use(express.urlencoded({ extended: true }));
 if (process.env.NODE_ENV !== "production") {
   app.use(morgan("dev"));
 }
-app.use("/auth", authRoutes);
+app.use("/users", authRoutes);
 app.use("/api/organiser/auth", organiserAuthRoutes);
 app.use("/api/event", EventsRoutes);
 

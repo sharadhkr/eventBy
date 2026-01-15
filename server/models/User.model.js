@@ -4,60 +4,63 @@ const userSchema = new mongoose.Schema(
   {
     uid: {
       type: String,
-      required: [true, "Firebase UID is required"],
+      required: true,
       unique: true,
       index: true,
     },
-    email: { 
-      type: String, 
-      sparse: true, 
+
+    email: {
+      type: String,
+      sparse: true,
       lowercase: true,
-      trim: true 
+      trim: true,
     },
+
     displayName: String,
     photoURL: String,
-    role: { 
-      type: String, 
-      enum: ['user', 'organiser', 'admin'], 
-      default: 'user' 
-    },
-    resume: {
-      public_id: { type: String }, 
-      url: { 
-        type: String,
-        match: [/^https?:\/\/.+/, "Please provide a valid URL for the resume"]
-      },
-      updatedAt: { type: Date }
-    },
-    portfolio: {
-      github: { type: String, trim: true },
-      linkedin: { type: String, trim: true },
-      website: { type: String, trim: true }
-    },
-    skills: [{
+
+    role: {
       type: String,
-      trim: true
-    }],
+      enum: ["user", "organiser", "admin"],
+      default: "user",
+    },
+
+    resume: {
+      public_id: String,
+      url: {
+        type: String,
+        match: [/^https?:\/\/.+/, "Invalid resume URL"],
+      },
+      updatedAt: Date,
+    },
+
+    portfolio: {
+      github: String,
+      linkedin: String,
+      website: String,
+    },
+
+    skills: [{ type: String, trim: true }],
+
     joinedEvents: [{
       type: mongoose.Schema.Types.ObjectId,
-      ref: "Event"
+      ref: "Event",
     }],
-    lastLogin: { type: Date },
+
+    organizedEvents: [{
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Event",
+    }],
+
+    lastLogin: Date,
   },
   { timestamps: true }
 );
-organizedEvents: [{
-    type: mongoose.Schema.Types.ObjectId,
-    ref: "Event"
-  }],
-/**
- * FIXED MIDDLEWARE
- * We remove the 'next' parameter and use a standard function.
- * This prevents the "next is not a function" error when used with async save calls.
- */
-userSchema.pre('save', async function() {
-  if (this.isModified('resume.url')) {
+
+userSchema.pre("save", function () {
+  if (this.isModified("resume.url")) {
     this.resume.updatedAt = new Date();
   }
 });
+
 module.exports = mongoose.model("User", userSchema);

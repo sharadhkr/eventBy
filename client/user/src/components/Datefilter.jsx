@@ -21,7 +21,7 @@ const AnalogDatePicker = () => {
       try {
         setLoading(true);
         // Hits your public event controller
-        const res = await userAPI.get('/auth/events'); 
+        const res = await userAPI.get('/users/events'); 
         
         // res.data.data is the array from your controller [success: true, data: [...]]
         const eventArray = res?.data?.data || []; 

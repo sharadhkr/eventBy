@@ -1,56 +1,92 @@
-import axios from 'axios';
+import axios from "axios";
 
-const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3000/';
+/**
+ * BASE URL
+ * Example:
+ * VITE_API_URL=http://localhost:3000/api
+ * VITE_API_URL=https://api.eventrix.com/api
+ */
+const API_BASE =
+  import.meta.env.VITE_API_URL?.replace(/\/$/, "") ||
+  "http://localhost:3000/";
 
 const api = axios.create({
   baseURL: API_BASE,
-  timeout: 10000,
+  timeout: 15000,
 });
 
 /**
  * AUTH INTERCEPTOR
- * Automatically attaches the Firebase Token to every request
+ * Automatically attaches Firebase ID token
  */
-api.interceptors.request.use(async (config) => {
-  // You can get this from your AuthContext or Firebase directly
-  const token = localStorage.getItem('idToken'); 
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`;
+api.interceptors.request.use(
+  (config) => {
+    const token = localStorage.getItem("idToken");
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+    return config;
+  },
+  (error) => Promise.reject(error)
+);
+
+/**
+ * RESPONSE INTERCEPTOR (optional safety)
+ */
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.response?.status === 401) {
+      console.warn("Unauthorized – token expired");
+      // optional: logout / redirect
+    }
+    return Promise.reject(error);
   }
-  return config;
-}, (error) => {
-  return Promise.reject(error);
-});
+);
 
+/* ===========================
+   AUTH API
+=========================== */
 export const authAPI = {
-  // Initial sync with backend
-  loginOrRegister: (idToken) => api.post('/auth/firebase', {}),
+  // Firebase login/register
+  loginOrRegister: () => api.post("/users/firebase"),
 };
 
+/* ===========================
+   USER API
+=========================== */
 export const userAPI = {
-  // Get full profile with populated events
-  getProfile: () => api.get('/auth/profile'),
+  // Full user profile
+  getProfile: () => api.get("/users/profile"),
 
-  // Update bio, social links, skills
-  updateProfile: (data) => api.patch('/auth/update-profile', data),
+  // Update profile (name, skills, portfolio, photo)
+  updateProfile: (formData) =>
+    api.patch("/users/update-profile", formData, {
+      headers: { "Content-Type": "multipart/form-data" },
+    }),
 
-  // Update resume URL (from Cloudinary/S3)
-  updateResume: (url, public_id) => api.patch('/auth/update-resume', { url, public_id }),
+  // Update resume
+  updateResume: (url, public_id) =>
+    api.patch("/users/update-resume", { url, public_id }),
 
-  // Get only user's joined events
-  getMyEvents: () => api.get('/auth/my-events'),
-  getOragnisers: () => api.get('/auth/oragnisers'),
-  
-  // Join an event (Triggers validations on backend)
-  joinEvent: (eventId) => api.post(`/auth/join-event/${eventId}`),
+  // Joined events
+  getMyEvents: () => api.get("/users/my-events"),
+
+  // Top organisers
+  getOrganisers: () => api.get("/users/organisers"),
+
+  // Join event
+  joinEvent: (eventId) =>
+    api.post(`/users/join-event/${eventId}`),
 };
 
+/* ===========================
+   EVENT API
+=========================== */
 export const eventAPI = {
-  // Fetch all published events
-  getAllEvents: (params) => api.get('auth/events', { params }),
-  
-  // Get single event details
-  getEventDetails: (id) => api.get(`auth/events/${id}`),
+  // All published events
+  getAllEvents: (params) =>
+    api.get("/users/events", { params }),
 };
 
 export default api;
