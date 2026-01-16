@@ -1,56 +1,62 @@
 const User = require("../../models/User.model");
+const { admin } = require("../../config/firebase");
 
 const loginOrRegister = async (req, res) => {
   try {
-    const fb = req.firebaseUser;
+    const { idToken } = req.body;
 
-    // 1. Try to find the user
-    let user = await User.findOne({ uid: fb.uid });
-    const isNewUser = !user;
+    if (!idToken) {
+      console.error("❌ No idToken found in request body");
+      return res.status(400).json({ success: false, message: "No ID Token provided" });
+    }
+    
+    // 1. Verify Token
+    const decodedToken = await admin.auth().verifyIdToken(idToken);
+    
+    // 2. Create 7-Day Session Cookie
+    const expiresIn = 60 * 60 * 24 * 7 * 1000; 
+    const sessionCookie = await admin.auth().createSessionCookie(idToken, { expiresIn });
 
-    if (isNewUser) {
-      // 2. Create detailed production-ready user
+    // 3. Set Cookie (localhost fix: secure: false)
+    const isProd = process.env.NODE_ENV === 'production';
+    const options = { 
+      maxAge: expiresIn, 
+      httpOnly: true, 
+      secure: isProd, 
+      sameSite: isProd ? 'none' : 'Lax',
+      path: '/' // Ensure cookie is available across all routes
+    };
+    res.cookie('session', sessionCookie, options);
+
+    // 4. Sync with MongoDB
+    let user = await User.findOne({ uid: decodedToken.uid });
+    if (!user) {
       user = await User.create({
-        uid: fb.uid,
-        email: fb.email ? fb.email.toLowerCase() : null,
-        phoneNumber: fb.phone_number || null,
-        displayName: fb.name || "New User",
-        photoURL: fb.picture || `api.dicebear.com{fb.uid}`,
-        role: 'user', // Default role from schema
-        isActive: true,
-        lastLogin: new Date(),
-        // Initialize empty social object if needed
-        socialLinks: { instagram: "", twitter: "", linkedin: "" }
+        uid: decodedToken.uid,
+        email: decodedToken.email || "",
+        displayName: decodedToken.name || "New User",
+        photoURL: decodedToken.picture || `https://api.dicebear.com{decodedToken.uid}`,
+        lastLogin: new Date()
       });
     } else {
-      // 3. Update existing user (Sync latest info from Firebase)
       user.lastLogin = new Date();
-      
-      // Optional: Sync photoURL if it changed in Google/Firebase
-      if (fb.picture && user.photoURL !== fb.picture) {
-        user.photoURL = fb.picture;
-      }
-      
+      if (decodedToken.picture) user.photoURL = decodedToken.picture;
       await user.save();
     }
 
-    // 4. Populate joined events so frontend AuthContext has full data immediately
-  const populatedUser = await User.findById(user._id)
-  .populate('joinedEvents'); 
+    const populatedUser = await User.findById(user._id).populate('joinedEvents');
+    res.status(200).json({ success: true, user: populatedUser });
 
-    res.status(200).json({
-      success: true,
-      isNewUser,
-      user: populatedUser,
-    });
   } catch (err) {
-    console.error("Auth controller error:", err);
-    res.status(500).json({ 
-      success: false, 
-      message: "Authentication failed",
-      error: process.env.NODE_ENV === 'development' ? err.message : undefined 
-    });
+    // ✅ CRITICAL: Log the actual error to your terminal
+    console.error("❌ Firebase Auth Error:", err.message);
+    res.status(401).json({ success: false, message: err.message });
   }
 };
 
-module.exports = { loginOrRegister };
+const logout = async (req, res) => {
+  res.clearCookie('session', { path: '/' }); // Path must match the one used to set it
+  res.status(200).json({ success: true, message: "Logged out" });
+};
+
+module.exports = { loginOrRegister, logout };

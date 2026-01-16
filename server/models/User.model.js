@@ -25,14 +25,10 @@ const userSchema = new mongoose.Schema(
       default: "user",
     },
 
-    resume: {
-      public_id: String,
-      url: {
-        type: String,
-        match: [/^https?:\/\/.+/, "Invalid resume URL"],
-      },
-      updatedAt: Date,
-    },
+    /* ======================
+       PROFILE TRACKING
+    ====================== */
+    skills: [String],
 
     portfolio: {
       github: String,
@@ -40,17 +36,73 @@ const userSchema = new mongoose.Schema(
       website: String,
     },
 
-    skills: [{ type: String, trim: true }],
+    resume: {
+      public_id: String,
+      url: String,
+      updatedAt: Date,
+    },
 
-    joinedEvents: [{
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "Event",
-    }],
+    /* ======================
+       EVENT TRACKING (SUMMARY)
+    ====================== */
+    joinedEvents: [
+      {
+        event: {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: "Event",
+        },
+        joinedAt: Date,
+        mode: {
+          type: String,
+          enum: ["solo", "team"],
+        },
+      },
+    ],
 
-    organizedEvents: [{
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "Event",
-    }],
+    savedEvents: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Event",
+      },
+    ],
+pendingInvites: [
+  {
+    team: { type: mongoose.Schema.Types.ObjectId, ref: "Team" },
+    event: { type: mongoose.Schema.Types.ObjectId, ref: "Event" },
+    invitedAt: Date,
+  },
+],
+
+unreadAnnouncements: { type: Number, default: 0 },
+
+    /* ======================
+       GROUP / TEAM TRACKING
+    ====================== */
+    groups: [
+      {
+        team: {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: "Team",
+        },
+        event: {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: "Event",
+        },
+        role: {
+          type: String,
+          enum: ["leader", "member"],
+        },
+        joinedAt: Date,
+      },
+    ],
+
+    /* ======================
+       NOTIFICATIONS
+    ====================== */
+    unreadAnnouncements: {
+      type: Number,
+      default: 0,
+    },
 
     lastLogin: Date,
   },

@@ -2,7 +2,7 @@ import React, { createContext, useState, useEffect, useContext, useRef } from "r
 import { onAuthStateChanged, signOut } from "firebase/auth";
 import { toast } from "react-hot-toast";
 import { auth } from "../utils/firebase";
-import { authAPI, userAPI } from "../lib/api"; // Added userAPI for refreshing profile
+import { authAPI, userAPI } from "../lib/api";
 
 const AuthContext = createContext(null);
 
@@ -16,14 +16,15 @@ export const AuthProvider = ({ children }) => {
   const [firebaseUser, setFirebaseUser] = useState(null);
   const [backendUser, setBackendUser] = useState(null);
   const [loading, setLoading] = useState(true);
-
+  
+  // ✅ New: Ensures we don't redirect until the cookie sync is confirmed
+  const [isSyncing, setIsSyncing] = useState(false); 
   const hasShownToast = useRef(false);
 
-  // ✅ New: Method to manually refresh user data from DB (after joining events/updating bio)
   const refreshUser = async () => {
     try {
       const res = await userAPI.getProfile();
-      setBackendUser(res.data.data);
+      setBackendUser(res.data.user || res.data.data || res.data);
     } catch (err) {
       console.error("Failed to refresh user data:", err);
     }
@@ -36,51 +37,57 @@ export const AuthProvider = ({ children }) => {
       if (!fbUser) {
         setFirebaseUser(null);
         setBackendUser(null);
-        localStorage.removeItem('idToken'); // 🗑️ Clear token
+        localStorage.removeItem('idToken');
         setLoading(false);
         return;
       }
 
       try {
-        const idToken = await fbUser.getIdToken(); 
-        
-        // 🗝️ Store token for Axios Interceptors to pick up
+        setIsSyncing(true); // 🔄 Start backend sync
+        const idToken = await fbUser.getIdToken(true); 
         localStorage.setItem('idToken', idToken);
 
+        // ✅ This call sets the 7-day cookie on your browser
         const res = await authAPI.loginOrRegister(idToken);
 
         setFirebaseUser(fbUser);
-        // Ensure we are setting the full data object from our new production schema
         setBackendUser(res.data.user || res.data);
 
         if (!hasShownToast.current) {
-          toast.success(
-            res.data.isNewUser
-              ? "Welcome! Account created 👋"
-              : "Welcome back! ✅"
-          );
+          toast.success(res.data.isNewUser ? "Welcome! 👋" : "Welcome back! ✅");
           hasShownToast.current = true;
         }
       } catch (err) {
-        console.error("Backend auth failed:", err);
-        localStorage.removeItem('idToken');
-        await signOut(auth);
-        setFirebaseUser(null);
-        setBackendUser(null);
+        console.error("Auth sync failed:", err);
+        // If 7-day cookie fails, clear everything
+        await handleLocalLogout();
       } finally {
-        setLoading(false);
+        setIsSyncing(false);
+        setLoading(false); 
       }
     });
 
     return () => unsubscribe();
   }, []);
 
+  const handleLocalLogout = async () => {
+    try {
+      await authAPI.logout(); 
+    } catch (e) {
+      console.warn("Server session already cleared");
+    } finally {
+      await signOut(auth);
+      setBackendUser(null);
+      setFirebaseUser(null);
+      localStorage.removeItem('idToken');
+      hasShownToast.current = false;
+      setLoading(false);
+      setIsSyncing(false);
+    }
+  };
+
   const logout = async () => {
-    await signOut(auth);
-    setBackendUser(null);
-    setFirebaseUser(null);
-    localStorage.removeItem('idToken'); // 🗑️ Clean up
-    hasShownToast.current = false;
+    await handleLocalLogout();
     toast.success("Logged out 👋");
   };
 
@@ -89,10 +96,11 @@ export const AuthProvider = ({ children }) => {
       value={{
         user: backendUser,
         firebaseUser,
-        isAuthenticated: !!backendUser,
-        loading,
+        // ✅ Double-check: Don't mark as authenticated if we are still syncing the cookie
+        isAuthenticated: !!backendUser && !isSyncing, 
+        loading: loading || isSyncing,
         logout,
-        refreshUser, // 🔄 Export this so components can update profile state
+        refreshUser,
       }}
     >
       {children}

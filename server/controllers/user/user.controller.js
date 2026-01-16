@@ -1,42 +1,43 @@
 const User = require("../../models/User.model");
 const Event = require("../../models/Event.model");
 const Organiser = require("../../models/organiser.model");
-const cloudinary = require("../../config/cloudinary");
+const EventParticipation = require("../../models/Eventparticipationmodel");
 
-// @desc    Get full profile with joined events
-// @route   GET /api/users/profile
+/* ============================================================
+   PROFILE
+============================================================ */
+
+// GET /api/users/profile
 exports.getProfile = async (req, res) => {
   try {
     const user = await User.findOne({ uid: req.user.uid })
-      .populate("joinedEvents")
-      .populate("organizedEvents");
+      .populate("savedEvents", "title banner eventDate")
+      .populate("groups.team")
+      .populate("groups.event");
 
-    if (!user) return res.status(404).json({ message: "User not found" });
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
 
-    res.status(200).json({ status: "success", data: user });
+    res.status(200).json({
+      success: true,
+      data: user,
+    });
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    console.error("getProfile error:", error);
+    res.status(500).json({ message: "Failed to fetch profile" });
   }
 };
 
-// @desc    Update basic profile and social links
-// @route   PATCH /api/users/update-profile
-
-// @desc Update user profile (SAFE)
+// PATCH /api/users/update-profile
 exports.updateProfile = async (req, res) => {
   try {
-    if (!req.user || !req.user.uid) {
-      return res.status(401).json({ message: "Unauthorized" });
-    }
-
     const user = await User.findOne({ uid: req.user.uid });
     if (!user) return res.status(404).json({ message: "User not found" });
 
     const { displayName, skills, portfolio } = req.body;
 
-    if (displayName !== undefined) {
-      user.displayName = displayName;
-    }
+    if (displayName !== undefined) user.displayName = displayName;
 
     if (skills) {
       user.skills = Array.isArray(skills) ? skills : JSON.parse(skills);
@@ -45,102 +46,186 @@ exports.updateProfile = async (req, res) => {
     if (portfolio) {
       const parsed =
         typeof portfolio === "string" ? JSON.parse(portfolio) : portfolio;
-
-      user.portfolio = {
-        ...user.portfolio,
-        ...parsed,
-      };
+      user.portfolio = { ...user.portfolio, ...parsed };
     }
 
-    // ✅ IMPORTANT: NO CLOUDINARY CALL HERE
+    // multer + cloudinary-storage gives URL directly
     if (req.file) {
-      user.photoURL = req.file.path;       // Cloudinary URL
-      user.photoPublicId = req.file.filename; // optional
+      user.photoURL = req.file.path;
     }
 
     await user.save();
 
     res.status(200).json({
       success: true,
-      message: "Profile updated successfully",
+      message: "Profile updated",
       data: user,
     });
   } catch (error) {
-    console.error("Update profile error:", error);
+    console.error("updateProfile error:", error);
     res.status(400).json({ message: error.message });
   }
 };
 
+/* ============================================================
+   EVENT JOIN (SOLO ONLY FOR NOW, TEAM READY)
+============================================================ */
 
-// @desc    Join an event with capacity & deadline checks
-// @route   POST /api/users/join-event/:eventId
+// POST /api/users/join-event/:eventId
 exports.joinEvent = async (req, res) => {
   try {
     const { eventId } = req.params;
-    const event = await Event.findById(eventId);
-    const user = await User.findOne({ uid: req.user.uid });
 
-    // 1. Check if event exists
+    const [event, user] = await Promise.all([
+      Event.findById(eventId),
+      User.findOne({ uid: req.user.uid }),
+    ]);
+
     if (!event) return res.status(404).json({ message: "Event not found" });
+    if (!user) return res.status(404).json({ message: "User not found" });
 
-    // 2. Check if already joined
-    if (user.joinedEvents.includes(eventId)) {
+    // Already joined?
+    const alreadyJoined = await EventParticipation.findOne({
+      event: eventId,
+      user: user._id,
+    });
+
+    if (alreadyJoined) {
       return res.status(400).json({ message: "Already joined this event" });
     }
 
-    // 3. Check Capacity
-    if (event.soldSeats >= event.totalCapacity) {
+    // Capacity check
+    if (event.totalCapacity && event.soldSeats >= event.totalCapacity) {
       return res.status(400).json({ message: "Event is full" });
     }
 
-    // 4. Check Deadline
-    if (new Date() > event.registrationDeadline) {
-      return res.status(400).json({ message: "Registration deadline has passed" });
+    // Deadline check
+    if (event.registrationDeadline && new Date() > event.registrationDeadline) {
+      return res
+        .status(400)
+        .json({ message: "Registration deadline passed" });
     }
 
-    // 5. Atomic Update: Join Event
-    event.participants.push({ user: user._id, joinedAt: Date.now() });
+    // Create participation (SOLO)
+    await EventParticipation.create({
+      event: event._id,
+      user: user._id,
+      role: "solo",
+    });
+
+    // Update event seats
     event.soldSeats += 1;
     await event.save();
 
-    user.joinedEvents.push(eventId);
+    // Lightweight user tracking (for dashboard)
+    user.joinedEvents.push({
+      event: event._id,
+      joinedAt: new Date(),
+      mode: "solo",
+    });
     await user.save();
 
-    res.status(200).json({ message: "Successfully joined event", event });
+    res.status(200).json({
+      success: true,
+      message: "Successfully joined event",
+    });
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    console.error("joinEvent error:", error);
+    res.status(500).json({ message: "Failed to join event" });
   }
 };
-// Ensure this path is 100% correct and NO curly braces { }
+
+/* ============================================================
+   EVENTS
+============================================================ */
+
+// GET /api/users/events
 exports.getAllEvents = async (req, res) => {
   try {
     const events = await Event.find({ status: "published" })
       .populate("organiser", "organisationName logo")
       .sort({ eventDate: 1 });
 
-    res.status(200).json({
-      success: true,
-      data: events
-    });
+    res.status(200).json({ success: true, data: events });
   } catch (error) {
+    console.error("getAllEvents error:", error);
     res.status(500).json({ success: false, message: error.message });
   }
 };
 
-
-// @desc    Get only events user has joined
-// @route   GET /api/users/my-events
+// GET /api/users/my-events
 exports.getMyEvents = async (req, res) => {
   try {
-    const user = await User.findOne({ uid: req.user.uid }).populate("joinedEvents");
-    res.status(200).json({ count: user.joinedEvents.length, events: user.joinedEvents });
+    const participations = await EventParticipation.find({
+      user: req.user._id,
+    })
+      .populate("event")
+      .populate("team");
+
+    res.status(200).json({
+      success: true,
+      count: participations.length,
+      data: participations,
+    });
   } catch (error) {
+    console.error("getMyEvents error:", error);
     res.status(500).json({ message: error.message });
   }
 };
 
-// @desc    Upload/Update Resume URL
-// @route   PATCH /api/users/update-resume
+/* ============================================================
+   SAVE / BOOKMARK EVENT
+============================================================ */
+
+// POST /api/users/save-event/:eventId
+exports.toggleSaveEvent = async (req, res) => {
+  try {
+    const user = await User.findOne({ uid: req.user.uid });
+    if (!user) return res.status(404).json({ message: "User not found" });
+
+    const { eventId } = req.params;
+    const alreadySaved = user.savedEvents.includes(eventId);
+
+    if (alreadySaved) {
+      user.savedEvents.pull(eventId);
+    } else {
+      user.savedEvents.push(eventId);
+    }
+
+    await user.save();
+
+    res.status(200).json({
+      success: true,
+      saved: !alreadySaved,
+    });
+  } catch (error) {
+    console.error("toggleSaveEvent error:", error);
+    res.status(500).json({ message: error.message });
+  }
+};
+
+/* ============================================================
+   ORGANISERS
+============================================================ */
+
+// GET /api/users/organisers
+exports.getTopOrganisers = async (req, res) => {
+  try {
+    const organisers = await Organiser.find({})
+      .select("organisationName logo bio followerCount")
+      .sort({ followerCount: -1 })
+      .limit(10);
+
+    res.status(200).json({
+      success: true,
+      count: organisers.length,
+      data: organisers,
+    });
+  } catch (error) {
+    console.error("getTopOrganisers error:", error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
 exports.updateResume = async (req, res) => {
   try {
     const { url, public_id } = req.body;
@@ -152,30 +237,5 @@ exports.updateResume = async (req, res) => {
     res.status(200).json({ message: "Resume updated", resume: user.resume });
   } catch (error) {
     res.status(400).json({ message: error.message });
-  }
-};
-
-// controllers/organiserController.js
-
-exports.getTopOrganisers = async (req, res) => {
-  try {
-    // 1. Fetch organisers sorted by followerCount descending
-    const organisers = await Organiser.find({})
-      .select("organisationName logo bio followerCount")
-      .sort({ followerCount: -1 }) // Top followed first
-      .limit(10); 
-
-    if (!organisers || organisers.length === 0) {
-      return res.status(200).json({ success: true, data: [] });
-    }
-
-    res.status(200).json({ 
-      success: true, 
-      count: organisers.length,
-      data: organisers 
-    });
-  } catch (error) {
-    console.error("Backend getTopOrganisers Error:", error.message);
-    res.status(500).json({ success: false, message: error.message });
   }
 };

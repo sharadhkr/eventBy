@@ -1,6 +1,7 @@
 // server/controllers/organiser/auth.controller.js
 const jwt = require("jsonwebtoken");
 const Organiser = require("../../models/organiser.model");
+const Announcement = require("../../models/annousmentmodel");
 const bcrypt = require("bcryptjs");
 
 // Helper to generate and send Cookie/Token
@@ -65,6 +66,24 @@ exports.loginOrganiser = async (req, res) => {
 exports.logoutOrganiser = (req, res) => {
   res.clearCookie("organiser_token");
   res.status(200).json({ success: true, message: "Logged out" });
+};
+exports.createAnnouncement = async (req, res) => {
+  const { eventId, teamId, message } = req.body;
+
+  const ann = await Announcement.create({
+    event: eventId,
+    team: teamId || null,
+    message,
+    createdBy: req.organiser._id,
+  });
+
+  // Increment unread count
+  await User.updateMany(
+    { "joinedEvents.event": eventId },
+    { $inc: { unreadAnnouncements: 1 } }
+  );
+
+  res.json({ success: true, data: ann });
 };
 
 exports.getMe = async (req, res) => {
