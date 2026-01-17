@@ -29,7 +29,6 @@ export default function EditProfilepage() {
 
   const handleLogout = async () => {
     try {
-      // Ends the 7-day session on backend and clears Firebase locally
       await contextLogout(); 
       navigate("/login");
     } catch (err) {

@@ -13,6 +13,7 @@ import ManageEvents from "./pages/ManageEvents";
 import EditEvent from "./pages/EditEvent";
 import EditProfile from "./pages/EditProfile";
 import Analytics from "./pages/Analytics";
+import EventAnnouncements from "./pages/EventAnnouncements";
 
 export default function App() {
   return (
@@ -28,6 +29,7 @@ export default function App() {
             <Route path="/events/create" element={<CreateEvent />} />
             <Route path="/events/manage" element={<ManageEvents />} />
             <Route path="/events/edit/:id" element={<EditEvent />} />
+            <Route path="//events/:id/announcements" element={<EventAnnouncements/>} />
             <Route path="/profile/edit" element={<EditProfile />} />
             <Route path="/analytics" element={<Analytics />} />
           </Route>

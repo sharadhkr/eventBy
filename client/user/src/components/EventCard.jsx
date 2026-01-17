@@ -1,177 +1,131 @@
 import React, { useState } from "react";
-import {
-  Heart,
-  MapPin,
-  Calendar,
-  Clock,
-  Trophy,
-  ExternalLink,
-  Bookmark,
-  Loader2,
-  User
-} from "lucide-react";
-import { motion } from "framer-motion";
-import { userAPI } from "../lib/api";
+import { MapPin, Calendar, Bookmark, Sparkles, Loader2 } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "react-hot-toast";
+import { userAPI } from "../lib/api";
 import { useAuth } from "../context/auth.context";
-import { useNavigate } from "react-router-dom";
 
-const EventCard = ({
-  id,
-  image,
-  title,
-  price,
-  date,
-  time,
-  location,
-  mode,
-  organiser,
-  prize,
-}) => {
+const EventCard = (props) => {
   const { user, refreshUser } = useAuth();
-  const navigate = useNavigate();
+  const [isSaving, setIsSaving] = useState(false);
+  
+  const { _id, id, title, banner, price, eventStart, mode, location } = props;
+  const eventId = _id || id;
+  const isSaved = user?.savedEvents?.some(e => (e._id || e) === eventId);
 
-  const [joining, setJoining] = useState(false);
-  const [saving, setSaving] = useState(false);
-
-  const hasJoined = user?.joinedEvents?.includes(id);
-  const isSaved = user?.savedEvents?.includes(id);
-
-  /* ================= SAVE EVENT ================= */
-  const toggleSave = async (e) => {
+  /* ================= CREATIVE TOGGLE SAVE ================= */
+  const handleToggleSave = async (e) => {
     e.stopPropagation();
-    if (!user) return toast.error("Login required");
+    if (!user) return toast.error("Please login to bookmark");
 
     try {
-      setSaving(true);
-      const res = await userAPI.toggleSaveEvent(id);
-      await refreshUser();
-      toast.success(res.data.saved ? "Event saved" : "Removed from saved");
-    } catch {
-      toast.error("Failed to save event");
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  /* ================= JOIN EVENT ================= */
-  const handleJoin = async (e) => {
-    e.stopPropagation();
-
-    if (!user) return toast.error("Please login");
-    if (hasJoined) return navigate(`/events/${id}`);
-
-    try {
-      setJoining(true);
-      await userAPI.joinEvent(id);
-      await refreshUser();
-      navigate(`/events/${id}`);
+      setIsSaving(true);
+      await userAPI.toggleSaveEvent(eventId);
+      await refreshUser(); // Update global context
+      
+      if (!isSaved) {
+        toast.success("Added to your collection!", {
+          icon: '✨',
+          style: { borderRadius: '15px', background: '#1e293b', color: '#fff' }
+        });
+      }
     } catch (err) {
-      toast.error(err.response?.data?.message || "Join failed");
+      toast.error("Network hiccup. Try again?");
     } finally {
-      setJoining(false);
+      setIsSaving(false);
     }
   };
 
   return (
-    <motion.div
+    <motion.div 
       layout
-      whileHover={{ y: -6 }}
-      onClick={() => navigate(`/events/${id}`)}
-      className="relative group bg-white/80 backdrop-blur-xl border border-white/30 rounded-[2rem] p-4 shadow-xl cursor-pointer"
+      className="group relative bg-white border border-slate-100 rounded-[2.8rem] p-4 shadow-xl hover:shadow-2xl transition-all duration-500"
     >
-      {/* IMAGE */}
-      <div className="relative h-52 rounded-[1.5rem] overflow-hidden shadow-2xl">
-        <img
-          src={image}
-          alt={title}
-          className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
-        />
+      {/* IMAGE SECTION */}
+      <div className="relative h-56 rounded-[2.2rem] overflow-hidden">
+        <img src={banner} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" alt={title} />
+        
+        {/* 🔥 CREATIVE SAVE BUTTON (FLOATING) */}
+        <div className="absolute top-4 left-4 z-20">
+          <motion.button
+            whileHover={{ scale: 1.1 }}
+            whileTap={{ scale: 0.9 }}
+            onClick={handleToggleSave}
+            className={`relative flex items-center justify-center w-12 h-12 rounded-2xl backdrop-blur-xl transition-all duration-300 ${
+              isSaved 
+                ? "bg-indigo-500 text-white shadow-lg shadow-indigo-200" 
+                : "bg-white/20 hover:bg-white/40 text-white border border-white/30"
+            }`}
+          >
+            <AnimatePresence mode="wait">
+              {isSaving ? (
+                <motion.div
+                  key="loader"
+                  initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                >
+                  <Loader2 size={20} className="animate-spin" />
+                </motion.div>
+              ) : (
+                <motion.div
+                  key="icon"
+                  initial={{ scale: 0 }} animate={{ scale: 1 }}
+                  transition={{ type: "spring", stiffness: 300, damping: 15 }}
+                >
+                  <Bookmark size={20} fill={isSaved ? "white" : "none"} strokeWidth={2.5} />
+                </motion.div>
+              )}
+            </AnimatePresence>
 
-        {/* PRICE */}
-        <div className="absolute top-3 right-3 bg-black/80 text-white px-3 py-1 rounded-full text-xs font-bold">
-          {price === 0 ? "FREE" : `₹${price}`}
+            {/* Sparkle burst animation when saved */}
+            {isSaved && !isSaving && (
+              <motion.div 
+                initial={{ opacity: 0, scale: 0 }}
+                animate={{ opacity: 1, scale: 1.5 }}
+                className="absolute -top-1 -right-1 text-yellow-300 pointer-events-none"
+              >
+                <Sparkles size={16} fill="currentColor" />
+              </motion.div>
+            )}
+          </motion.button>
         </div>
 
-        {/* MODE */}
-        <div className="absolute bottom-3 left-3 bg-white/20 backdrop-blur-md px-3 py-1 rounded-full text-[10px] font-bold uppercase text-white">
-          {mode}
+        {/* Price & Mode Badges */}
+        <div className="absolute bottom-4 right-4 flex gap-2">
+          <div className="bg-slate-900/80 backdrop-blur text-white px-4 py-1.5 rounded-2xl text-[10px] font-black uppercase tracking-tighter">
+            {price === 0 ? "Free Access" : `₹${price}`}
+          </div>
         </div>
       </div>
 
-      {/* CONTENT */}
-      <div className="mt-4 space-y-3">
-        <h3 className="text-lg font-black text-slate-800 line-clamp-2">
-          {title}
-        </h3>
-
-        {/* META */}
-        <div className="grid grid-cols-2 gap-y-2 text-xs text-slate-500">
-          <div className="flex items-center gap-2">
-            <Calendar size={14} /> {date}
-          </div>
-
-          <div className="flex items-center gap-2">
-            <Clock size={14} /> {time || "TBA"}
-          </div>
-
-          <div className="flex items-center gap-2 col-span-2">
-            <MapPin size={14} /> {location}
-          </div>
-
-          {prize && (
-            <div className="flex items-center gap-2 col-span-2 text-green-600 font-semibold">
-              <Trophy size={14} /> Prize: {prize}
-            </div>
-          )}
-
-          {organiser && (
-            <div className="flex items-center gap-2 col-span-2">
-              <User size={14} /> {organiser}
-            </div>
-          )}
+      {/* CONTENT SECTION */}
+      <div className="mt-6 px-2 pb-2">
+        <div className="flex justify-between items-start mb-4">
+          <h3 className="text-xl font-black text-slate-800 leading-tight line-clamp-1 flex-1">
+            {title}
+          </h3>
         </div>
 
-        {/* ACTIONS */}
-        <div className="flex items-center gap-2 pt-3 border-t">
-          {/* SAVE */}
-          <motion.button
-            whileTap={{ scale: 0.9 }}
-            onClick={toggleSave}
-            className={`p-2 rounded-xl border ${
-              isSaved
-                ? "bg-indigo-50 text-indigo-600 border-indigo-200"
-                : "border-slate-200 text-slate-400"
-            }`}
-          >
-            {saving ? (
-              <Loader2 size={16} className="animate-spin" />
-            ) : (
-              <Bookmark size={16} fill={isSaved ? "currentColor" : "none"} />
-            )}
-          </motion.button>
+        <div className="grid grid-cols-2 gap-4 mb-6">
+          <div className="flex items-center gap-2.5 text-[11px] font-bold text-slate-400 uppercase tracking-widest">
+            <div className="p-2 bg-indigo-50 rounded-xl text-indigo-500">
+               <Calendar size={14} />
+            </div>
+            {new Date(eventStart).toLocaleDateString('en-US', { day: 'numeric', month: 'short' })}
+          </div>
 
-          {/* JOIN */}
-          <motion.button
-            disabled={joining}
-            onClick={handleJoin}
-            className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-xl font-bold text-xs transition ${
-              hasJoined
-                ? "bg-green-500 text-white"
-                : "bg-slate-900 text-white"
-            }`}
-          >
-            {joining ? (
-              <Loader2 size={14} className="animate-spin" />
-            ) : hasJoined ? (
-              "View Event"
-            ) : (
-              <>
-                Join Now <ExternalLink size={12} />
-              </>
-            )}
-          </motion.button>
+          <div className="flex items-center gap-2.5 text-[11px] font-bold text-slate-400 uppercase tracking-widest">
+            <div className="p-2 bg-rose-50 rounded-xl text-rose-500">
+               <MapPin size={14} />
+            </div>
+            <span className="truncate">{location?.city || "Remote"}</span>
+          </div>
         </div>
+
+        <motion.button
+          className="w-full group/btn drop-shadow-xl flex items-center justify-between bg-indigo-500 hover:bg-indigo-600 text-white p-4 rounded-[1.5rem] transition-all duration-300"
+        >
+          <span className="pl-6 text-[10px] font-black uppercase tracking-[0.3em]">Grab Spot</span>
+        </motion.button>
       </div>
     </motion.div>
   );

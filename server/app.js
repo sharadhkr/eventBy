@@ -5,6 +5,7 @@ const morgan = require("morgan");
 const cookieParser = require("cookie-parser");
 
 const authRoutes = require("./routes/user/auth.routes");
+const teamRoutes = require("./routes/user/Team.routes");
 const organiserAuthRoutes = require("./routes/organiser/auth.routes");
 const EventsRoutes = require("./routes/organiser/Event.routes");
 
@@ -28,11 +29,16 @@ if (process.env.NODE_ENV !== "production") {
   app.use(morgan("dev"));
 }
 app.use("/users", authRoutes);
+app.use("/teams", teamRoutes);
 app.use("/api/organiser/auth", organiserAuthRoutes);
 app.use("/api/event", EventsRoutes);
 
 app.get("/health", (req, res) => {
   res.json({ status: "ok" });
+});
+app.use((err, req, res, next) => {
+  console.error("Global Error Handler:", err);
+  res.status(500).send(err.message || "Internal Server Error");
 });
 
 module.exports = app;

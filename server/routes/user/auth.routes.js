@@ -4,7 +4,7 @@ const router = express.Router();
 /* ===========================
    MIDDLEWARES
 =========================== */
-const firebaseMiddleware = require("../../middlewares/firebase.middleware");
+const {verifyFirebaseToken} = require("../../middlewares/firebase.middleware");
 const upload = require("../../config/cloudinary");
 
 /* ===========================
@@ -12,94 +12,108 @@ const upload = require("../../config/cloudinary");
 =========================== */
 const authController = require("../../controllers/user/auth.controller");
 const userController = require("../../controllers/user/user.controller");
-const teamController = require("../../controllers/user/Teamcontroller");
 
-/* ============================================================
-   AUTH (Firebase → Backend Sync)
-============================================================ */
+console.log("FINAL CHECK:", {
+  verifyFirebaseToken: typeof verifyFirebaseToken,
+  loginOrRegister: typeof authController.loginOrRegister
+});
+
+/* ===========================
+   AUTH
+=========================== */
 router.post(
   "/firebase",
-  firebaseMiddleware.verifyFirebaseToken,
+  verifyFirebaseToken,
   authController.loginOrRegister
 );
 
-/* ============================================================
+router.post("/logout", authController.logout);
+
+/* ===========================
    PROFILE
-============================================================ */
+=========================== */
 router.get(
   "/profile",
-  firebaseMiddleware.verifyFirebaseToken,
+  verifyFirebaseToken,
   userController.getProfile
 );
 
 router.patch(
   "/update-profile",
-  firebaseMiddleware.verifyFirebaseToken,
-  upload.single("photo"), // Cloudinary + Multer
+  verifyFirebaseToken,
+  upload.single("photo"),
   userController.updateProfile
 );
 
 router.patch(
   "/update-resume",
-  firebaseMiddleware.verifyFirebaseToken,
+  verifyFirebaseToken,
   userController.updateResume
 );
 
-/* ============================================================
-   TEAM / GROUP MANAGEMENT
-============================================================ */
+/* ===========================
+   PAYMENTS & EVENTS
+=========================== */
+
+// Create Razorpay Order (PAID EVENTS)
 router.post(
-  "/teams/:teamId/invite",
-  firebaseMiddleware.verifyFirebaseToken,
-  teamController.inviteToTeam
+  "/create-order/:eventId",
+  verifyFirebaseToken,
+  userController.createOrder
 );
 
-router.post(
-  "/teams/:teamId/accept",
-  firebaseMiddleware.verifyFirebaseToken,
-  teamController.acceptTeamInvite
-);
-
-router.post(
-  "/teams/:teamId/reject",
-  firebaseMiddleware.verifyFirebaseToken,
-  teamController.rejectTeamInvite
-);
-
-/* ============================================================
-   EVENTS (USER ACTIONS)
-============================================================ */
-
-// Join event (solo or team handled inside controller)
+// Join Event (Free / Paid / Team)
 router.post(
   "/join-event/:eventId",
-  firebaseMiddleware.verifyFirebaseToken,
+  verifyFirebaseToken,
   userController.joinEvent
 );
 
-router.post("/logout", authController.logout); 
-// Save / Unsave event (Bookmark)
+// Get Announcements (Joined users only)
+router.get(
+  "/events/:eventId/announcements",
+  verifyFirebaseToken,
+  userController.getAnnouncements
+);
+
+// Save / Unsave Event (Bookmark)
 router.post(
   "/save-event/:eventId",
-  firebaseMiddleware.verifyFirebaseToken,
+  verifyFirebaseToken,
   userController.toggleSaveEvent
 );
 
-// User joined events
+// User Joined Events
 router.get(
   "/my-events",
-  firebaseMiddleware.verifyFirebaseToken,
+  verifyFirebaseToken,
   userController.getMyEvents
 );
 
-/* ============================================================
-   PUBLIC DATA
-============================================================ */
+/* ===========================
+   EVENTS (PUBLIC)
+=========================== */
 
-// All published events
-router.get("/events", userController.getAllEvents);
+// Single Event Details
+router.get(
+  "/events/:id",
+  userController.getEventDetails
+);
 
-// Top organisers
-router.get("/organisers", userController.getTopOrganisers);
+// All Published Events
+router.get(
+  "/events",
+  userController.getAllEvents
+);
+
+/* ===========================
+   ORGANISERS
+=========================== */
+
+// Top Organisers
+router.get(
+  "/organisers",
+  userController.getTopOrganisers
+);
 
 module.exports = router;

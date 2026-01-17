@@ -1,207 +1,102 @@
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { organiserAPI } from "../api/api";
 import { toast } from "react-hot-toast";
-import { Loader2, Save, ArrowLeft, Image as ImageIcon } from "lucide-react";
+import { Loader2, Save, ArrowLeft } from "lucide-react";
 
 const EditEvent = () => {
   const { id } = useParams();
   const navigate = useNavigate();
 
-  const [form, setForm] = useState({
-    title: "",
-    description: "",
-    eventDate: "",
-    registrationDeadline: "",
-    location: { address: "" },
-    ticketPrice: "",
-    totalCapacity: "",
-    banner: "",
-  });
-
+  const [form, setForm] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [updating, setUpdating] = useState(false);
+  const [saving, setSaving] = useState(false);
 
-  // 1. Fetch event data and format it for HTML inputs
   useEffect(() => {
-    const fetchEvent = async () => {
-      try {
-        setLoading(true);
-        const res = await organiserAPI.getMyEvents();
-        const event = res.data.data.find((e) => e._id === id);
-        
-        if (!event) throw new Error("Event not found");
-
-        setForm({
-          title: event.title,
-          description: event.description,
-          // Format date to 'YYYY-MM-DDTHH:MM' for datetime-local input
-          eventDate: new Date(event.eventDate).toISOString().slice(0, 16),
-          registrationDeadline: new Date(event.registrationDeadline).toISOString().slice(0, 16),
-          location: { address: event.location?.address || "" },
-          ticketPrice: event.ticketPrice,
-          totalCapacity: event.totalCapacity,
-          banner: event.banner || "",
-        });
-      } catch (err) {
-        toast.error("Failed to load event data");
-        navigate("/organiser/manage-events");
-      } finally {
-        setLoading(false);
-      }
-    };
     fetchEvent();
-  }, [id, navigate]);
+  }, [id]);
 
-  const handleChange = (e) => {
-    const { name, value } = e.target;
-    if (name === "address") {
-      setForm(prev => ({ ...prev, location: { address: value } }));
-    } else {
-      setForm(prev => ({ ...prev, [name]: value }));
+  const fetchEvent = async () => {
+    try {
+      const res = await organiserAPI.getEventDetails(id);
+      const e = res.data.data;
+
+      setForm({
+        title: e.title,
+        description: e.description,
+        eventDate: new Date(e.eventDate).toISOString().slice(0, 16),
+        registrationDeadline: new Date(e.registrationDeadline).toISOString().slice(0, 16),
+        address: e.location?.address || "",
+        price: e.pricing?.amount || 0,
+        maxParticipants: e.maxParticipants,
+        banner: e.banner,
+      });
+    } catch {
+      toast.error("Failed to load event");
+      navigate("/events/manage");
+    } finally {
+      setLoading(false);
     }
   };
 
-  const handleSubmit = async (e) => {
+  const handleChange = (e) => {
+    setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }));
+  };
+
+  const submit = async (e) => {
     e.preventDefault();
     try {
-      setUpdating(true);
-      await organiserAPI.updateEvent(id, form);
-      toast.success("Changes saved successfully!");
-      navigate("/organiser/manage-events");
+      setSaving(true);
+
+      const payload = {
+        title: form.title,
+        description: form.description,
+        eventDate: form.eventDate,
+        registrationDeadline: form.registrationDeadline,
+        location: { address: form.address },
+        pricing: { isFree: form.price === 0, amount: Number(form.price) },
+        maxParticipants: Number(form.maxParticipants),
+      };
+
+      await organiserAPI.updateEvent(id, payload);
+      toast.success("Event updated");
+      navigate("/events/manage");
     } catch (err) {
       toast.error(err.response?.data?.message || "Update failed");
     } finally {
-      setUpdating(false);
+      setSaving(false);
     }
   };
 
-  if (loading) return (
-    <div className="flex items-center justify-center h-screen">
-      <Loader2 className="animate-spin text-purple-600" size={40} />
-    </div>
-  );
+  if (loading) return <div className="flex justify-center p-20"><Loader2 className="animate-spin" /></div>;
 
   return (
-    <div className="max-w-4xl mx-auto p-6 bg-slate-50 min-h-screen">
-      <button 
-        onClick={() => navigate(-1)} 
-        className="flex items-center gap-2 text-slate-500 hover:text-slate-800 mb-6 transition-colors"
-      >
-        <ArrowLeft size={18} /> Back to Manage
+    <div className="max-w-4xl mx-auto p-6">
+      <button onClick={() => navigate(-1)} className="flex items-center gap-2 mb-6 text-slate-600">
+        <ArrowLeft size={16} /> Back
       </button>
 
-      <div className="bg-white rounded-[2.5rem] shadow-sm border border-slate-100 p-8">
-        <header className="mb-8">
-          <h1 className="text-3xl font-black text-slate-900">Edit Event</h1>
-          <p className="text-slate-500">Update your event details and settings</p>
-        </header>
+      <div className="bg-white rounded-3xl shadow p-8">
+        <h1 className="text-2xl font-bold mb-6">Edit Event</h1>
 
-        <form onSubmit={handleSubmit} className="space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="md:col-span-2">
-              <label className="block text-xs font-bold uppercase text-slate-400 mb-2 ml-1">Event Title</label>
-              <input
-                name="title"
-                value={form.title}
-                onChange={handleChange}
-                className="w-full p-4 bg-slate-50 rounded-2xl border-none focus:ring-2 focus:ring-purple-500"
-                required
-              />
-            </div>
+        <form onSubmit={submit} className="space-y-6">
+          <input name="title" value={form.title} onChange={handleChange} className="input" placeholder="Title" />
+          <textarea name="description" value={form.description} onChange={handleChange} className="input" rows={4} placeholder="Description" />
 
-            <div className="md:col-span-2">
-              <label className="block text-xs font-bold uppercase text-slate-400 mb-2 ml-1">Description</label>
-              <textarea
-                name="description"
-                value={form.description}
-                onChange={handleChange}
-                rows="4"
-                className="w-full p-4 bg-slate-50 rounded-2xl border-none focus:ring-2 focus:ring-purple-500"
-                required
-              />
-            </div>
-
-            <div>
-              <label className="block text-xs font-bold uppercase text-slate-400 mb-2 ml-1">Event Date & Time</label>
-              <input
-                type="datetime-local"
-                name="eventDate"
-                value={form.eventDate}
-                onChange={handleChange}
-                className="w-full p-4 bg-slate-50 rounded-2xl border-none"
-                required
-              />
-            </div>
-
-            <div>
-              <label className="block text-xs font-bold uppercase text-slate-400 mb-2 ml-1">Registration Deadline</label>
-              <input
-                type="datetime-local"
-                name="registrationDeadline"
-                value={form.registrationDeadline}
-                onChange={handleChange}
-                className="w-full p-4 bg-slate-50 rounded-2xl border-none"
-                required
-              />
-            </div>
-
-            <div className="md:col-span-2">
-              <label className="block text-xs font-bold uppercase text-slate-400 mb-2 ml-1">Location Address</label>
-              <input
-                name="address"
-                value={form.location.address}
-                onChange={handleChange}
-                className="w-full p-4 bg-slate-50 rounded-2xl border-none"
-                required
-              />
-            </div>
-
-            <div>
-              <label className="block text-xs font-bold uppercase text-slate-400 mb-2 ml-1">Price ($)</label>
-              <input
-                type="number"
-                name="ticketPrice"
-                value={form.ticketPrice}
-                onChange={handleChange}
-                className="w-full p-4 bg-slate-50 rounded-2xl border-none"
-                required
-              />
-            </div>
-
-            <div>
-              <label className="block text-xs font-bold uppercase text-slate-400 mb-2 ml-1">Capacity</label>
-              <input
-                type="number"
-                name="totalCapacity"
-                value={form.totalCapacity}
-                onChange={handleChange}
-                className="w-full p-4 bg-slate-50 rounded-2xl border-none"
-                required
-              />
-            </div>
+          <div className="grid grid-cols-2 gap-4">
+            <input type="datetime-local" name="eventDate" value={form.eventDate} onChange={handleChange} className="input" />
+            <input type="datetime-local" name="registrationDeadline" value={form.registrationDeadline} onChange={handleChange} className="input" />
           </div>
 
-          <div className="bg-slate-50 p-6 rounded-3xl border border-dashed border-slate-200">
-            <label className="block text-xs font-bold uppercase text-slate-400 mb-4 ml-1">Current Banner</label>
-            {form.banner ? (
-              <div className="relative rounded-2xl overflow-hidden group">
-                <img src={form.banner} alt="Preview" className="w-full h-48 object-cover" />
-                <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
-                   <p className="text-white text-xs font-bold flex items-center gap-2"><ImageIcon size={16}/> Banner is Locked</p>
-                </div>
-              </div>
-            ) : (
-              <div className="h-48 bg-slate-100 rounded-2xl flex items-center justify-center text-slate-400">No banner</div>
-            )}
+          <input name="address" value={form.address} onChange={handleChange} className="input" placeholder="Address" />
+
+          <div className="grid grid-cols-2 gap-4">
+            <input type="number" name="price" value={form.price} onChange={handleChange} className="input" placeholder="Price" />
+            <input type="number" name="maxParticipants" value={form.maxParticipants} onChange={handleChange} className="input" placeholder="Capacity" />
           </div>
 
-          <button
-            type="submit"
-            disabled={updating}
-            className="w-full bg-slate-900 text-white p-5 rounded-2xl font-bold flex items-center justify-center gap-2 hover:bg-black transition-all disabled:opacity-50"
-          >
-            {updating ? <Loader2 className="animate-spin" /> : <><Save size={20} /> Save Changes</>}
+          <button disabled={saving} className="w-full bg-indigo-600 text-white py-3 rounded-xl flex justify-center gap-2">
+            {saving ? <Loader2 className="animate-spin" /> : <><Save size={16} /> Save</>}
           </button>
         </form>
       </div>
@@ -210,3 +105,7 @@ const EditEvent = () => {
 };
 
 export default EditEvent;
+
+/* Tailwind helper:
+.input { @apply w-full p-3 rounded-xl bg-slate-50 border focus:ring-2 focus:ring-indigo-500 }
+*/

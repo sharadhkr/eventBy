@@ -1,155 +1,123 @@
-const Team = require("../../models/teammodel");
-const User = require("../../models/User.model");
-const EventParticipation = require("../../models/Eventparticipationmodel");
-const Announcement = require("../../models/annousmentmodel");
+const Team = require('../../models/team.model');
+const User = require('../../models/User.model');
 
-/* ============================================================
-   HELPERS
-============================================================ */
-
-const getMongoUser = async (uid) => {
-  const user = await User.findOne({ uid });
-  if (!user) throw new Error("User not found");
-  return user;
-};
-
-/* ============================================================
-   INVITE USER TO TEAM
-============================================================ */
-// POST /api/users/teams/:teamId/invite
-exports.inviteToTeam = async (req, res) => {
+exports.searchUsers = async (req, res) => {
   try {
-    const { teamId } = req.params;
-    const { userId } = req.body; // Mongo _id of invitee
-
-    const inviter = await getMongoUser(req.user.uid);
-    const team = await Team.findById(teamId);
-
-    if (!team) return res.status(404).json({ message: "Team not found" });
-
-    if (!team.leader.equals(inviter._id)) {
-      return res.status(403).json({ message: "Only team leader can invite" });
-    }
-
-    if (team.members.includes(userId)) {
-      return res.status(400).json({ message: "User already in team" });
-    }
-
-    await User.findByIdAndUpdate(userId, {
-      $addToSet: {
-        pendingInvites: {
-          team: team._id,
-          event: team.event,
-          invitedAt: new Date(),
-        },
-      },
-    });
-
-    res.json({ success: true, message: "Team invite sent" });
-  } catch (err) {
-    console.error("inviteToTeam error:", err);
-    res.status(500).json({ message: err.message });
-  }
-};
-
-/* ============================================================
-   ACCEPT TEAM INVITE
-============================================================ */
-// POST /api/users/teams/:teamId/accept
-exports.acceptTeamInvite = async (req, res) => {
-  try {
-    const { teamId } = req.params;
-
-    const user = await getMongoUser(req.user.uid);
-    const team = await Team.findById(teamId);
-
-    if (!team) return res.status(404).json({ message: "Team not found" });
-
-    if (team.members.includes(user._id)) {
-      return res.status(400).json({ message: "Already in team" });
-    }
-
-    // Prevent duplicate participation
-    const exists = await EventParticipation.findOne({
-      user: user._id,
-      event: team.event,
-    });
-
-    if (exists) {
-      return res.status(400).json({ message: "Already registered for event" });
-    }
-
-    team.members.push(user._id);
-    await team.save();
-
-    await EventParticipation.create({
-      user: user._id,
-      event: team.event,
-      team: team._id,
-      role: "member",
-    });
-
-    await User.findByIdAndUpdate(user._id, {
-      $pull: { pendingInvites: { team: team._id } },
-      $addToSet: {
-        groups: {
-          team: team._id,
-          event: team.event,
-          role: "member",
-          joinedAt: new Date(),
-        },
-      },
-    });
-
-    res.json({ success: true, message: "Joined team successfully" });
-  } catch (err) {
-    console.error("acceptTeamInvite error:", err);
-    res.status(500).json({ message: err.message });
-  }
-};
-
-/* ============================================================
-   REJECT TEAM INVITE
-============================================================ */
-// POST /api/users/teams/:teamId/reject
-exports.rejectTeamInvite = async (req, res) => {
-  try {
-    const user = await getMongoUser(req.user.uid);
-
-    await User.findByIdAndUpdate(user._id, {
-      $pull: { pendingInvites: { team: req.params.teamId } },
-    });
-
-    res.json({ success: true, message: "Invite rejected" });
-  } catch (err) {
-    res.status(500).json({ message: err.message });
-  }
-};
-
-/* ============================================================
-   ANNOUNCEMENTS (EVENT + TEAM)
-============================================================ */
-// GET /api/users/announcements
-exports.getAnnouncements = async (req, res) => {
-  try {
-    const user = await getMongoUser(req.user.uid);
-
-    const teamIds = user.groups.map((g) => g.team);
-    const eventIds = user.groups.map((g) => g.event);
-
-    const announcements = await Announcement.find({
+    const { query } = req.query;
+    const users = await User.find({
       $or: [
-        { team: { $in: teamIds } },
-        { event: { $in: eventIds } },
-      ],
-    }).sort({ createdAt: -1 });
+        { email: { $regex: query, $options: 'i' } },
+        { displayName: { $regex: query, $options: 'i' } }
+      ]
+    })
+    .limit(5)
+    /* ✅ Crucial: Must select 'uid' to send it to the frontend */
+    .select('displayName email photoURL uid'); 
 
-    user.unreadAnnouncements = 0;
-    await user.save();
-
-    res.json({ success: true, data: announcements });
+    res.status(200).json({ success: true, data: users });
   } catch (err) {
-    console.error("getAnnouncements error:", err);
+    res.status(500).json({ message: err.message });
+  }
+};
+
+// controllers/team.controller.js
+
+exports.createTeam = async (req, res) => {
+  try {
+    const { name, size, inviteeIds } = req.body; 
+    const creatorFirebaseUid = req.uid || req.user?.uid;
+
+    // 1. Find the Leader (We still use Firebase UID here because it comes from Auth Middleware)
+    const leaderUser = await User.findOne({ uid: creatorFirebaseUid });
+    if (!leaderUser) return res.status(404).json({ message: "Leader not found in DB" });
+
+    // 2. Find Invited Users using MongoDB _id (since frontend is sending _ids)
+    // ✅ CHANGED: We now search by _id
+    const invitedUsers = await User.find({ _id: { $in: inviteeIds } });
+    
+    console.log("Invitee IDs received:", inviteeIds);
+    console.log("Users found in DB:", invitedUsers.length);
+
+    if (invitedUsers.length !== inviteeIds.length) {
+      return res.status(400).json({ 
+        success: false,
+        message: "Some invited users were not found in the database." 
+      });
+    }
+
+    // 3. Build the members array
+    const members = invitedUsers.map(user => ({ 
+      user: user._id, 
+      status: 'pending' 
+    }));
+
+    // Add the leader as 'accepted'
+    members.push({ user: leaderUser._id, status: 'accepted' });
+
+    // 4. Create the Team
+    const team = await Team.create({
+      name,
+      size,
+      leader: leaderUser._id,
+      members
+    });
+
+    res.status(201).json({ success: true, data: team });
+  } catch (err) {
+    // Handle Duplicate Name Error
+    if (err.code === 11000) {
+      return res.status(400).json({ message: "You already have a team with this name!" });
+    }
+    console.error("❌ Team Create Error:", err.message);
+    res.status(500).json({ message: err.message });
+  }
+};
+// 3. Get User Notifications (Pending Invites)
+exports.getInvites = async (req, res) => {
+  try {
+    const firebaseUid = req.uid || req.user?.uid;
+    
+    // 1. Get the MongoDB _id for the current user
+    const user = await User.findOne({ uid: firebaseUid });
+    if (!user) return res.status(404).json({ message: "User not found" });
+
+    // 2. Search teams where THIS MongoDB _id is pending
+    const invites = await Team.find({
+      'members': { $elemMatch: { user: user._id, status: 'pending' } }
+    }).populate('leader', 'displayName photoURL');
+    
+    res.status(200).json({ success: true, data: invites });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+// 4. Accept or Reject Invite
+exports.respondToInvite = async (req, res) => {
+  try {
+    const { teamId, action } = req.body; 
+    const firebaseUid = req.uid || req.user?.uid;
+
+    // 1. Get the MongoDB _id
+    const user = await User.findOne({ uid: firebaseUid });
+    if (!user) return res.status(404).json({ message: "User not found" });
+
+    if (action === 'accept') {
+      // Update the specific member object inside the array
+      await Team.updateOne(
+        { _id: teamId, 'members.user': user._id },
+        { $set: { 'members.$.status': 'accepted' } }
+      );
+    } else {
+      // Remove the member object entirely from the array
+      await Team.updateOne(
+        { _id: teamId },
+        { $pull: { members: { user: user._id } } }
+      );
+    }
+
+    res.status(200).json({ success: true, message: `Invite ${action}ed successfully` });
+  } catch (err) {
     res.status(500).json({ message: err.message });
   }
 };

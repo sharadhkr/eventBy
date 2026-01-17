@@ -19,8 +19,6 @@ const api = axios.create({
 =========================== */
 api.interceptors.request.use(
   (config) => {
-    // We keep this as a fallback; however, the backend will now 
-    // prioritize the 7-day HttpOnly cookie if present.
     const token = localStorage.getItem("idToken");
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
@@ -38,6 +36,8 @@ api.interceptors.response.use(
   (error) => {
     // 🛑 DON'T redirect if the error came from the login route itself
     if (error.response?.status === 401 && !error.config.url.includes('/users/firebase')) {
+      console.warn("Session expired. Redirecting to login...");
+      localStorage.removeItem("idToken");
       window.location.href = "/login";
     }
     return Promise.reject(error);
@@ -49,56 +49,67 @@ api.interceptors.response.use(
    AUTH API
 =========================== */
 export const authAPI = {
-  /**
-   * Firebase login/register
-   * @param {string} idToken - The raw token from firebase.auth().currentUser.getIdToken()
-   */
   loginOrRegister: (idToken) => api.post("/users/firebase", { idToken }),
-
-  /**
-   * Logout to clear the 7-day session cookie on the server
-   */
   logout: () => api.post("/users/logout"),
 };
 
 /* ===========================
    USER API
 =========================== */
+/* ===========================
+   USER API (Updated)
+=========================== */
 export const userAPI = {
-  /* -------- PROFILE -------- */
   getProfile: () => api.get("/users/profile"),
-
   updateProfile: (formData) =>
     api.patch("/users/update-profile", formData, {
       headers: { "Content-Type": "multipart/form-data" },
     }),
-
   updateResume: (url, public_id) =>
     api.patch("/users/update-resume", { url, public_id }),
-
-  /* -------- EVENTS -------- */
   getMyEvents: () => api.get("/users/my-events"),
-
-  joinEvent: (eventId) =>
-    api.post(`/users/join-event/${eventId}`),
-
-  /* -------- SAVE / BOOKMARK -------- */
-  toggleSaveEvent: (eventId) =>
-    api.post(`/users/save-event/${eventId}`),
-
-  /* -------- ORGANISERS -------- */
+  
+  // STEP 1: Create Razorpay Order
+  createOrder: (eventId) => api.post("/users/create-order", { eventId }),
+  
+  // STEP 2: Finalize Join (Passes teamId and Payment details)
+  joinEvent: (eventId, data) => api.post(`/users/join-event/${eventId}`, data),
+  
+  toggleSaveEvent: (eventId) => api.post(`/users/save-event/${eventId}`),
   getOrganisers: () => api.get("/users/organisers"),
+  
+  // Announcements
+  getAnnouncements: (eventId) => api.get(`/users/events/${eventId}/announcements`),
 };
 
 /* ===========================
    EVENT API
 =========================== */
+/* ===========================
+   EVENT API
+=========================== */
 export const eventAPI = {
-  getAllEvents: (params) =>
-    api.get("/users/events", { params }),
+  getAllEvents: (params) => api.get("/users/events", { params }),
+  
+  // ✅ FIXED: Added /users prefix to match your auth.routes.js
+  getEventDetails: (id) => api.get(`/users/events/${id}`), 
+};
 
-  getEventDetails: (id) =>
-    api.get(`/events/${id}`),
+/* ===========================
+   TEAM API (Functional)
+=========================== */
+export const teamAPI = {
+  // Uses encodeURIComponent to handle emails/special characters in search
+  searchUsers: (query) => api.get(`/teams/search?query=${encodeURIComponent(query)}`),
+  
+  // Creates team and triggers backend invite logic
+  createTeam: (teamData) => api.post('/teams/create', teamData),
+  
+  // Fetches pending invites for the user's notification center
+  getInvites: () => api.get('/teams/invites'),
+  
+  // Handles 'accept' or 'reject' actions
+  respondToInvite: (teamId, action) => api.post('/teams/respond', { teamId, action }),
 };
 
 export default api;

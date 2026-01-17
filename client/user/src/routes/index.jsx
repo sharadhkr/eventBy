@@ -1,13 +1,12 @@
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import Login from "../pages/auth/Login";
 import Home from "../pages/Home";
-import Events from "../pages/Home";
-import Tickets from "../pages/Home";
-import Profile from "../pages/Home";
 import ProtectedRoute from "../middleware/ProtectedRoute";
 import MainLayout from "../layouts/NavLayout";
 import EditProfile from "../pages/EditProfilepage";
 import ProfilePage from "../pages/profile/ProfilePage";
+import JoinEventPage from "../pages/JoinEventPage";
+import EventMapPage from "../pages/EventMapPage";
 
 export default function AppRoutes() {
   return (
@@ -25,14 +24,15 @@ export default function AppRoutes() {
           }
         >
           <Route path="/home" element={<Home />} />
-          <Route path="/events" element={<Events />} />
-          <Route path="/tickets" element={<Tickets />} />
-          <Route path="/profile" element={<ProfilePage/>} />
-          <Route path="/editprofile" element={<EditProfile/>} />
+          <Route path="/profile" element={<ProfilePage />} />
+          <Route path="/map" element={<EventMapPage/>} />
+          <Route path="/editprofile" element={<EditProfile />} />
+          <Route path="/events/:eventId/join" element={<JoinEventPage/>} />
+          <Route path="/events" element={<JoinEventPage/>} />
         </Route>
 
         {/* Redirect */}
-        <Route path="*" element={<Navigate to="/home" replace />} />
+        {/* <Route path="*" element={<Navigate to="/home" replace />} /> */}
       </Routes>
     </BrowserRouter>
   );

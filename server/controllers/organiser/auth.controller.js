@@ -1,7 +1,7 @@
 // server/controllers/organiser/auth.controller.js
 const jwt = require("jsonwebtoken");
 const Organiser = require("../../models/organiser.model");
-const Announcement = require("../../models/annousmentmodel");
+const Announcement = require("../../models/Announcement.model.js");
 const bcrypt = require("bcryptjs");
 
 // Helper to generate and send Cookie/Token
