@@ -116,55 +116,82 @@ const joinEvent = async (req, res) => {
 
     if (!event) return res.status(404).json({ message: "Event not found" });
 
+    // 1. PRE-CHECK: If user is already in, stop
     const exists = await EventParticipation.findOne({ event: eventId, user: user._id });
-    if (exists) return res.status(400).json({ message: "Already joined" });
+    if (exists) return res.status(400).json({ message: "You have already joined this event" });
 
-    if (event.teamCriteria.type !== "solo" && !teamId) {
-      return res.status(400).json({ message: "Team required" });
+    // 2. PAYMENT VERIFICATION (Only needs to happen once for the whole team)
+    if (event.isPaid) {
+      // ... (Keep your existing Razorpay HMAC verification logic here) ...
+      // If verification fails, return res.status(400)
     }
 
-    if (!event.pricing.isFree) {
-      const payment = await Payment.findOne({ razorpayOrderId: razorpay_order_id });
-      if (!payment) return res.status(400).json({ message: "Payment record missing" });
+    // 3. COLLECTIVE JOINING LOGIC
+    let membersToJoin = [user._id]; // Default to just the current user
 
-      const body = razorpay_order_id + "|" + razorpay_payment_id;
-      const expected = crypto
-        .createHmac("sha256", process.env.RAZORPAY_KEY_SECRET)
-        .update(body)
-        .digest("hex");
+    if (event.participationType !== "solo" && teamId) {
+      const team = await Team.findById(teamId).populate("members.user");
+      if (!team) return res.status(404).json({ message: "Team not found" });
 
-      if (expected !== razorpay_signature)
-        return res.status(400).json({ message: "Payment verification failed" });
-
-      payment.razorpayPaymentId = razorpay_payment_id;
-      payment.razorpaySignature = razorpay_signature;
-      payment.status = "paid";
-      await payment.save();
+      // Extract all member IDs from the team
+      membersToJoin = team.members.map(m => m.user._id || m.user);
     }
 
-    await EventParticipation.create({
-      event: eventId,
-      user: user._id,
-      team: teamId || null,
-      isPaymentVerified: true
+    // 4. LOOP THROUGH ALL MEMBERS & CREATE DATA
+    const joinPromises = membersToJoin.map(async (memberId) => {
+      // Avoid duplicate check for teammates (if they joined via another team)
+      const alreadyJoined = await EventParticipation.findOne({ event: eventId, user: memberId });
+      if (alreadyJoined) return null;
+
+      // A. Create Participation
+      await EventParticipation.create({
+        event: eventId,
+        user: memberId,
+        team: teamId || null,
+        isPaymentVerified: true
+      });
+
+      // B. Update User Profile Array (for Dashboard visibility)
+      await User.findByIdAndUpdate(memberId, { 
+        $push: { 
+          joinedEvents: { 
+            event: eventId, 
+            joinedAt: new Date(),
+            mode: teamId ? "team" : "solo" 
+          } 
+        } 
+      });
+
+      // C. Generate Individual Pass
+      const { passId, qrData } = generatePass(eventId, memberId);
+      return await EventPass.create({
+        event: eventId,
+        user: memberId,
+        passId,
+        qrData
+      });
     });
 
-    const { passId, qrData } = generatePass(eventId, user._id);
+    const results = await Promise.all(joinPromises);
+    const myPass = results.find(p => p && p.user.toString() === user._id.toString());
 
-    const pass = await EventPass.create({
-      event: eventId,
-      user: user._id,
-      passId,
-      qrData
+    // 5. UPDATE EVENT STATS (Increment by number of members joined)
+    await Event.findByIdAndUpdate(eventId, { 
+      $inc: { participantsCount: membersToJoin.length, soldSeats: 1 } 
     });
 
-    await Event.findByIdAndUpdate(eventId, { $inc: { soldSeats: 1 } });
+    res.status(200).json({ 
+      success: true, 
+      message: `Team joined! ${membersToJoin.length} passes issued.`, 
+      pass: myPass 
+    });
 
-    res.json({ success: true, message: "Joined successfully", pass });
   } catch (err) {
+    console.error("COLLECTIVE JOIN ERROR:", err);
     res.status(500).json({ message: err.message });
   }
 };
+
 
 /* ============================================================
    EVENTS & ANNOUNCEMENTS

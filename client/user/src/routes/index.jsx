@@ -27,7 +27,7 @@ export default function AppRoutes() {
           <Route path="/profile" element={<ProfilePage />} />
           <Route path="/map" element={<EventMapPage/>} />
           <Route path="/editprofile" element={<EditProfile />} />
-          <Route path="/events/:eventId/join" element={<JoinEventPage/>} />
+          <Route path="/events/:id" element={<JoinEventPage/>} />
           <Route path="/events" element={<JoinEventPage/>} />
         </Route>
 

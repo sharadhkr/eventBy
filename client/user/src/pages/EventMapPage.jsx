@@ -4,7 +4,7 @@ import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { MapPin, Zap, Ticket, Laptop, Crosshair, Loader2, ArrowRight } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { eventAPI } from '../lib/api'; // Ensure this points to your api.js
+import { eventAPI } from '../lib/api'; 
 import { toast } from 'react-hot-toast';
 
 // 1. Premium Custom Marker Styling
@@ -17,7 +17,6 @@ const customMarkerIcon = (color) => L.divIcon({
   iconAnchor: [20, 40],
 });
 
-// 2. Map Helper: Recenter to User
 function RecenterButton({ coords }) {
   const map = useMap();
   return (
@@ -32,34 +31,25 @@ function RecenterButton({ coords }) {
 
 export default function EventMapPage() {
   const navigate = useNavigate();
-  const [events, setEvents] = useState([]); // Default empty array
+  const [events, setEvents] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState('all');
-  
-  // Default center (e.g., Mumbai) - will update if user allows location
-  const [center, setCenter] = useState([19.0760, 72.8777]);
+  const [center, setCenter] = useState([26.2317, 78.1627]); // Default to Gwalior (from your DB record)
 
-  // Fetch Events from API
   useEffect(() => {
     const loadEvents = async () => {
       try {
         setLoading(true);
         const res = await eventAPI.getAllEvents();
-        
-        // Safety check: access the nested data array from your api.js structure
-        const eventData = res.data?.data || [];
-        setEvents(eventData);
+        setEvents(res.data?.data || []);
       } catch (err) {
-        console.error("Failed to fetch events for map:", err);
         toast.error("Could not load event locations");
       } finally {
         setLoading(false);
       }
     };
-
     loadEvents();
 
-    // Get real user location
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
         (pos) => setCenter([pos.coords.latitude, pos.coords.longitude]),
@@ -68,37 +58,35 @@ export default function EventMapPage() {
     }
   }, []);
 
-  // Filter Logic with Safety Check
   const filteredEvents = useMemo(() => {
-    if (!Array.isArray(events)) return [];
+    // Only show offline events on a map
+    const offlineEvents = events.filter(e => e.mode === 'offline');
     
-    return events.filter(e => {
+    return offlineEvents.filter(e => {
       if (filter === 'free') return e.price === 0;
       if (filter === 'paid') return e.price > 0;
-      if (filter === 'tech') return e.category?.toLowerCase() === 'tech';
+      if (filter === 'tech') return e.eventType === 'hackathon';
       return true;
     });
   }, [events, filter]);
 
   return (
-    <div className="relative h-screen w-full bg-[#f8fafc] overflow-hidden font-sans">
+    <div className="relative h-screen w-full bg-[#f8fafc] overflow-hidden">
       
-      {/* 3. PREMIUM FLOATING FILTER DOCK */}
+      {/* FILTER DOCK */}
       <div className="absolute top-8 left-1/2 -translate-x-1/2 z-[1000] w-[90%] max-w-2xl">
-        <div className="bg-white/80 backdrop-blur-2xl border border-white/40 shadow-[0_20px_50px_rgba(0,0,0,0.1)] rounded-[2.5rem] p-2 flex items-center gap-1">
+        <div className="bg-white/90 backdrop-blur-xl border border-slate-100 shadow-2xl rounded-[2.5rem] p-2 flex items-center gap-1">
           {[
             { id: 'all', label: 'All', icon: null },
-            { id: 'free', label: 'Free', icon: <Zap size={14} />, color: 'emerald' },
-            { id: 'paid', label: 'Paid', icon: <Ticket size={14} />, color: 'indigo' },
-            { id: 'tech', label: 'Tech', icon: <Laptop size={14} />, color: 'blue' }
+            { id: 'free', label: 'Free', icon: <Zap size={14} /> },
+            { id: 'paid', label: 'Paid', icon: <Ticket size={14} /> },
+            { id: 'tech', label: 'Hackathons', icon: <Laptop size={14} /> }
           ].map((btn) => (
             <button
               key={btn.id}
               onClick={() => setFilter(btn.id)}
-              className={`flex-1 flex items-center justify-center gap-2 py-3 px-6 rounded-[2rem] text-[11px] font-black uppercase tracking-widest transition-all ${
-                filter === btn.id 
-                ? 'bg-slate-900 text-white shadow-xl scale-105' 
-                : 'text-slate-500 hover:bg-white/50'
+              className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-[2rem] text-[10px] font-black uppercase tracking-widest transition-all ${
+                filter === btn.id ? 'bg-slate-900 text-white shadow-xl' : 'text-slate-400 hover:bg-slate-50'
               }`}
             >
               {btn.icon} {btn.label}
@@ -107,59 +95,43 @@ export default function EventMapPage() {
         </div>
       </div>
 
-      {/* 4. LOADING OVERLAY */}
       {loading && (
-        <div className="absolute inset-0 z-[1001] bg-white/60 backdrop-blur-md flex flex-col items-center justify-center">
-          <Loader2 className="animate-spin text-indigo-600 mb-4" size={40} />
-          <p className="font-black text-slate-800 uppercase tracking-widest text-xs">Mapping Events...</p>
+        <div className="absolute inset-0 z-[1001] bg-white/60 backdrop-blur-md flex items-center justify-center">
+          <Loader2 className="animate-spin text-indigo-600" size={40} />
         </div>
       )}
 
-      {/* 5. THE MAP */}
-      <MapContainer 
-        center={center} 
-        zoom={11} 
-        style={{ height: '100%', width: '100%' }}
-        zoomControl={false}
-      >
-        <TileLayer
-          url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
-          attribution='&copy; CARTO'
-        />
+      <MapContainer center={center} zoom={12} style={{ height: '100%', width: '100%' }} zoomControl={false}>
+        <TileLayer url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png" />
 
-        {/* User Marker */}
-        <Marker position={center} icon={L.divIcon({ html: `<div class="w-5 h-5 bg-blue-500 rounded-full border-4 border-white shadow-2xl animate-pulse"></div>`, className: '' })} />
-
-        {/* Event Markers with Safety Check for Coordinates */}
         {filteredEvents.map((event) => {
-          const lat = event.location?.coordinates?.lat;
-          const lng = event.location?.coordinates?.lng;
+          // ✅ FIX: Access path matches your MongoDB Schema [lng, lat]
+          const coords = event.geoLocation?.coordinates;
+          if (!coords || coords.length < 2) return null;
 
-          if (!lat || !lng) return null; // Skip events without locations
+          // ✅ FIX: Leaflet needs [lat, lng], but MongoDB stores [lng, lat]
+          const position = [coords[1], coords[0]];
 
           return (
             <Marker 
-              key={event._id}
-              position={[lat, lng]}
+              key={event._id} 
+              position={position} 
               icon={customMarkerIcon(event.price > 0 ? '#4f46e5' : '#10b981')}
             >
-              <Popup className="premium-popup">
-                <div className="p-1 w-64">
-                  <div className="h-32 rounded-2xl overflow-hidden mb-3">
-                    <img src={event.banner || event.image} className="w-full h-full object-cover" alt="" />
-                  </div>
-                  <h3 className="font-black text-slate-800 text-base leading-tight mb-1">{event.title}</h3>
-                  <p className="text-slate-400 text-[10px] font-bold uppercase mb-4">{event.location?.address || 'Venue TBD'}</p>
-                  
+              <Popup>
+                <div className="p-1 w-64 font-sans">
+                  <img src={event.banner} className="w-full h-32 object-cover rounded-2xl mb-3" alt="" />
+                  <h3 className="font-black text-slate-800 text-sm mb-1">{event.title}</h3>
+                  <p className="text-slate-400 text-[10px] font-bold uppercase mb-3">
+                    <MapPin size={10} className="inline mr-1"/> {event.location?.address}
+                  </p>
                   <div className="flex justify-between items-center pt-3 border-t border-slate-100">
-                    <span className="text-sm font-black text-slate-900">
-                      {event.price === 0 ? 'FREE' : `₹${event.price}`}
-                    </span>
+                    <span className="text-xs font-black">₹{event.price || '0'}</span>
                     <button 
                       onClick={() => navigate(`/events/${event._id}`)}
-                      className="flex items-center gap-2 bg-slate-900 text-white text-[10px] px-4 py-2 rounded-xl font-black transition-transform hover:scale-105 active:scale-95"
+                      className="bg-slate-900 text-white text-[9px] px-4 py-2 rounded-xl font-black"
                     >
-                      VIEW DETAILS <ArrowRight size={12} />
+                      VIEW EVENT
                     </button>
                   </div>
                 </div>
@@ -167,26 +139,13 @@ export default function EventMapPage() {
             </Marker>
           );
         })}
-
         <RecenterButton coords={center} />
       </MapContainer>
 
-      {/* 6. STYLE INJECTIONS */}
       <style>{`
-        .leaflet-popup-content-wrapper { 
-          border-radius: 32px !important; 
-          padding: 8px !important; 
-          box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25) !important;
-          border: 1px solid rgba(255,255,255,0.3);
-        }
+        .leaflet-popup-content-wrapper { border-radius: 28px !important; padding: 4px !important; }
         .leaflet-popup-tip-container { display: none; }
-        .leaflet-container { font-family: 'Inter', sans-serif !important; }
-        .premium-popup .leaflet-popup-content { margin: 8px !important; width: auto !important; }
       `}</style>
     </div>
   );
-}3
-
-
-
-
+}
