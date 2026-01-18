@@ -46,7 +46,13 @@ export const organiserAPI = {
     });
   },
 
-  /* ---------- EVENTS ---------- */
+  /* ---------- EVENTS & DASHBOARD ---------- */
+
+  // ✅ NEW: GET Aggregated Stats (Revenue, Total Users, Active Events)
+  getDashboardStats: () => API.get("/event/dashboard/stats"),
+
+  // ✅ NEW: GLOBAL Broadcast (Sends one message to ALL participants)
+  postBroadcast: (content) => API.post("/event/broadcast", { content }),
 
   createEvent: (formData) =>
     API.post("/event", formData, {
@@ -55,6 +61,7 @@ export const organiserAPI = {
 
   getMyEvents: () => API.get("/event"),
 
+  // ✅ FETCH FOR EDIT: Gets a single event's details
   getEventDetails: (eventId) => API.get(`/event/${eventId}`),
 
   updateEvent: (eventId, formData) =>
@@ -72,11 +79,11 @@ export const organiserAPI = {
 
   /* ---------- ANNOUNCEMENTS ---------- */
 
-  // ✅ ORGANISER: get announcements for event
+  // ✅ EVENT SPECIFIC: Get announcements for a single event
   getAnnouncements: (eventId) =>
     API.get(`/event/${eventId}/announcements`),
 
-  // ✅ ORGANISER: post announcement
+  // ✅ EVENT SPECIFIC: Post announcement to a single event
   postAnnouncement: (eventId, content) =>
     API.post(`/event/${eventId}/announcements`, { content }),
 };

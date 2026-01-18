@@ -203,6 +203,22 @@ exports.getMyEvents = async (req, res) => {
 
   res.json({ success: true, data: events });
 };
+exports.getEventDetails = async (req, res) => {
+  try {
+    const event = await Event.findOne({ 
+      _id: req.params.id, 
+      organiser: req.organiser._id 
+    }).lean();
+
+    if (!event) {
+      return res.status(404).json({ success: false, message: "Event not found" });
+    }
+
+    res.status(200).json({ success: true, data: event });
+  } catch (err) {
+    res.status(500).json({ success: false, message: "Error retrieving event" });
+  }
+};
 
 /* =========================================================
    3. UPDATE EVENT  ✅ (FIXED & EXISTS)
@@ -336,6 +352,66 @@ exports.getEventAnalytics = async (req, res) => {
     success: true,
     data: { participants, passesIssued: passes, revenue },
   });
+};
+// New Global Stats with Unique User Counting
+exports.getDashboardStats = async (req, res) => {
+  try {
+    const stats = await Event.aggregate([
+      // 1. Filter events belonging only to this organiser
+      { $match: { organiser: req.organiser._id } },
+      
+      // 2. Calculate totals
+      {
+        $group: {
+          _id: null,
+          totalRevenue: { $sum: { $multiply: ["$price", "$participantsCount"] } },
+          totalRegistrations: { $sum: "$participantsCount" },
+          totalEvents: { $sum: 1 },
+          activeEvents: { 
+            $sum: { $cond: [{ $eq: ["$status", "published"] }, 1, 0] } 
+          }
+        }
+      }
+    ]);
+
+    // Fallback if no events exist yet
+    const result = stats.length > 0 ? stats[0] : {
+      totalRevenue: 0,
+      totalRegistrations: 0,
+      totalEvents: 0,
+      activeEvents: 0
+    };
+
+    res.status(200).json({ success: true, data: result });
+  } catch (err) {
+    res.status(500).json({ message: "Analytics sync failed", error: err.message });
+  }
+};
+
+
+// Global Broadcast Logic
+exports.broadcastAnnouncement = async (req, res) => {
+  const { content } = req.body;
+  try {
+    const myEvents = await Event.find({ organiser: req.organiser._id }).select("_id");
+    const eventIds = myEvents.map(e => e._id);
+
+    // Bulk update all announcement groups for these events
+    await AnnouncementGroup.updateMany(
+      { event: { $in: eventIds } },
+      { $push: { messages: {
+          sender: req.organiser._id,
+          senderType: "Organiser",
+          content,
+          isAnnouncement: true,
+          createdAt: new Date()
+      }}}
+    );
+
+    res.status(200).json({ success: true, message: "Broadcast sent to all events!" });
+  } catch (err) {
+    res.status(500).json({ message: "Broadcast failed" });
+  }
 };
 
 /* =========================================================
