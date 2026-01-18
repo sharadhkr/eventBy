@@ -1,25 +1,26 @@
-const admin = require("firebase-admin");
+const { admin } = require("../config/firebase");
 
 const verifyFirebaseToken = async (req, res, next) => {
-  const sessionCookie = req.cookies.session; // 👈 Check 7-day cookie
-
   try {
-    let decoded;
-    if (sessionCookie) {
-      // Use Firebase Admin to verify the cookie
-      decoded = await admin.auth().verifySessionCookie(sessionCookie, true);
-    } else {
-      // Fallback to Bearer token if cookie is missing
-      const authHeader = req.headers.authorization;
-      if (!authHeader) return res.status(401).json({ message: "No session" });
-      const token = authHeader.split("Bearer ")[1];
-      decoded = await admin.auth().verifyIdToken(token);
+    const sessionCookie = req.cookies?.session;
+
+    if (!sessionCookie) {
+      return res.status(401).json({ message: "Not authenticated" });
     }
 
-    req.user = { uid: decoded.uid, email: decoded.email };
+    const decoded = await admin
+      .auth()
+      .verifySessionCookie(sessionCookie, true);
+
+    req.user = {
+      uid: decoded.uid,
+      email: decoded.email,
+    };
+
     next();
   } catch (err) {
-    res.status(401).json({ message: "Session expired, please relogin" });
+    console.error("Session verification failed:", err.message);
+    return res.status(401).json({ message: "Session expired, please relogin" });
   }
 };
 

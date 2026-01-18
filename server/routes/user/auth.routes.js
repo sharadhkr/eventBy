@@ -23,7 +23,6 @@ console.log("FINAL CHECK:", {
 =========================== */
 router.post(
   "/firebase",
-  verifyFirebaseToken,
   authController.loginOrRegister
 );
 

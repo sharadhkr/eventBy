@@ -1,51 +1,53 @@
 const User = require("../../models/User.model");
 const { admin } = require("../../config/firebase");
 
+/* ============================================================
+   LOGIN / REGISTER WITH FIREBASE
+   POST /users/firebase
+============================================================ */
 const loginOrRegister = async (req, res) => {
   try {
     const { idToken } = req.body;
 
     if (!idToken) {
-      console.error("❌ No idToken found in request body");
-      return res.status(400).json({ success: false, message: "No ID Token provided" });
+      return res.status(400).json({
+        success: false,
+        message: "No ID Token provided",
+      });
     }
-    
-    // 1. Verify Token
+
+    /* 1. Verify Firebase ID Token */
     const decodedToken = await admin.auth().verifyIdToken(idToken);
-    
-    // 2. Create 7-Day Session Cookie
-    const expiresIn = 60 * 60 * 24 * 7 * 1000; 
-    const sessionCookie = await admin.auth().createSessionCookie(idToken, { expiresIn });
 
-    // 3. Set Cookie (localhost fix: secure: false)
-    // const isProd = process.env.NODE_ENV === 'production';
-    // const options = { 
-    //   maxAge: expiresIn, 
-    //   httpOnly: true, 
-    //   secure: isProd, 
-    //   sameSite: isProd ? 'none' : 'Lax',
-    //   path: '/' // Ensure cookie is available across all routes
-    // };
-    const isProd = process.env.NODE_ENV === 'production';
-const options = { 
-  maxAge: expiresIn, 
-  httpOnly: true, 
-  secure: isProd, 
-  sameSite: isProd ? 'none' : 'Lax',
-  path: '/'
-};
+    /* 2. Create Firebase Session Cookie (7 days) */
+    const expiresIn = 7 * 24 * 60 * 60 * 1000; // 7 days
+    const sessionCookie = await admin
+      .auth()
+      .createSessionCookie(idToken, { expiresIn });
 
-    res.cookie('session', sessionCookie, options);
+    /* 3. Set Session Cookie */
+    const isProd = process.env.NODE_ENV === "production";
 
-    // 4. Sync with MongoDB
+    res.cookie("session", sessionCookie, {
+      maxAge: expiresIn,
+      httpOnly: true,
+      secure: isProd,                 // HTTPS only in prod
+      sameSite: isProd ? "none" : "Lax",
+      path: "/",
+    });
+
+    /* 4. Sync User with MongoDB */
     let user = await User.findOne({ uid: decodedToken.uid });
+
     if (!user) {
       user = await User.create({
         uid: decodedToken.uid,
         email: decodedToken.email || "",
         displayName: decodedToken.name || "New User",
-        photoURL: decodedToken.picture || `https://api.dicebear.com{decodedToken.uid}`,
-        lastLogin: new Date()
+        photoURL:
+          decodedToken.picture ||
+          `https://api.dicebear.com/6.x/identicon/svg?seed=${decodedToken.uid}`,
+        lastLogin: new Date(),
       });
     } else {
       user.lastLogin = new Date();
@@ -53,31 +55,59 @@ const options = {
       await user.save();
     }
 
-    const populatedUser = await User.findById(user._id).populate('joinedEvents');
-    res.status(200).json({ success: true, user: populatedUser });
+    const populatedUser = await User.findById(user._id).populate(
+      "joinedEvents"
+    );
 
+    return res.status(200).json({
+      success: true,
+      user: populatedUser,
+    });
   } catch (err) {
-    // ✅ CRITICAL: Log the actual error to your terminal
-    console.error("❌ Firebase Auth Error:", err.message);
-    res.status(401).json({ success: false, message: err.message });
+    console.error("❌ Firebase Login Error:", err.message);
+
+    return res.status(401).json({
+      success: false,
+      message: err.message || "Authentication failed",
+    });
   }
 };
 
+/* ============================================================
+   LOGOUT
+   POST /users/logout
+============================================================ */
 const logout = async (req, res) => {
-  const isProd = process.env.NODE_ENV === 'production';
+  try {
+    const sessionCookie = req.cookies?.session;
 
-  res.clearCookie('session', { 
-    path: '/',
+    /* Optional: revoke all Firebase sessions */
+    if (sessionCookie) {
+      const decoded = await admin
+        .auth()
+        .verifySessionCookie(sessionCookie, true);
+      await admin.auth().revokeRefreshTokens(decoded.sub);
+    }
+  } catch (err) {
+    // Silent fail — logout must always succeed
+  }
+
+  const isProd = process.env.NODE_ENV === "production";
+
+  res.clearCookie("session", {
+    path: "/",
     httpOnly: true,
-    // MUST match the settings used in loginOrRegister:
-    secure: true,      // Always true for Render/HTTPS
-    sameSite: 'none'   // Required for cross-domain auth
+    secure: isProd,
+    sameSite: isProd ? "none" : "Lax",
   });
 
-  res.status(200).json({ 
-    success: true, 
-    message: "Logged out successfully" 
+  return res.status(200).json({
+    success: true,
+    message: "Logged out successfully",
   });
 };
 
-module.exports = { loginOrRegister, logout };
+module.exports = {
+  loginOrRegister,
+  logout,
+};
