@@ -47,8 +47,8 @@ function Topbar() {
       {/* Background Blurs */}
       <div className="absolute w-full z-10 opacity-20 top-0 left-0 flex items-center justify-center blur-2xl pointer-events-none">
         <div className="w-[30%] h-20 bg-purple-400"></div>
-        <div className="w-[40%] h-20 skew-x-12 bg-pink-400"></div>
-        <div className="w-[30%] h-20 skew-x-12 bg-yellow-400"></div>
+        <div className="w-[40%] h-20 bg-pink-400"></div>
+        <div className="w-[30%] h-20 bg-yellow-400"></div>
       </div>
     </div>
   );

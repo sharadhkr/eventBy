@@ -23,7 +23,7 @@ export default function AppRoutes() {
             </ProtectedRoute>
           }
         >
-          <Route path="/home" element={<Home />} />
+          <Route path="/" element={<Home />} />
           <Route path="/profile" element={<ProfilePage />} />
           <Route path="/map" element={<EventMapPage/>} />
           <Route path="/editprofile" element={<EditProfile />} />

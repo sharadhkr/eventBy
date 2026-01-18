@@ -124,11 +124,8 @@
 // };
 
 // export default NavBar;import React, { useEffect, useState } from "react";
-import { Home, User } from "lucide-react";
-// ✅ Correct this line at the top of NavBar.jsx
-import React, { useState, useEffect } from "react"; 
-// ... (rest of your framer-motion imports)
-
+import React, { useState, useEffect } from "react";
+import { Map, Calendar, LayoutGrid, User, Home } from "lucide-react";
 import { useNavigate, useLocation } from "react-router-dom";
 import {
   motion,
@@ -145,165 +142,135 @@ const THRESHOLD = 85;
 const GlassLiquidNavBar = () => {
   const navigate = useNavigate();
   const location = useLocation();
-
   const [isDragging, setIsDragging] = useState(false);
-  const [showHint, setShowHint] = useState(!localStorage.getItem("glass_nav_used"));
 
   const x = useMotionValue(0);
   const velocity = useVelocity(x);
+  const liquidX = useSpring(x, { stiffness: 80, damping: 30, mass: 1.5 });
 
-  const liquidX = useSpring(x, {
-    stiffness: 80,
-    damping: 30,
-    mass: 1.5,
-  });
+  /* ================= DYNAMIC ROUTE THEMES ================= */
+  const themes = {
+    "/events": { color: "rgba(99, 102, 241, 0.25)", glow: "#6366f1", icon: "text-indigo-600" },
+    "/map": { color: "rgba(16, 185, 129, 0.25)", glow: "#10b981", icon: "text-emerald-600" },
+    "default": { color: "rgba(255, 255, 255, 0.1)", glow: "#ffffff", icon: "text-slate-400" }
+  };
 
-  /* ================= DYNAMIC GLASS THEME ================= */
-  // Entire box color shifts based on the ball's spring position
-  const glassTint = useTransform(
-    liquidX,
-    [-MAX_DRAG, 0, MAX_DRAG],
-    ["rgba(139, 92, 246, 0.15)", "rgba(255, 255, 255, 0.1)", "rgba(234, 179, 8, 0.15)"]
-  );
+  const currentTheme = themes[location.pathname] || themes["default"];
+  const isNeutral = !themes[location.pathname];
 
-  const glassBlur = useTransform(
-    liquidX,
-    [-MAX_DRAG, 0, MAX_DRAG],
-    ["blur(40px)", "blur(24px)", "blur(40px)"]
-  );
+  useEffect(() => { x.set(0); }, [location.pathname]);
 
-  const isLeft = location.pathname === "/profile";
-  const isRight = location.pathname === "/home";
-
-  useEffect(() => {
-    x.set(0);
-  }, [location.pathname]);
-
-  /* ================= ANIMATION TRANSFORMS ================= */
-  const ballScale = useTransform(x, [-MAX_DRAG, 0, MAX_DRAG], [1.1, 1, 1.1]);
-  
-  // Labels shift slightly towards the ball to look "magnetic"
-  const leftLabelX = useTransform(liquidX, [-MAX_DRAG, 0], [0, 10]);
-  const rightLabelX = useTransform(liquidX, [0, MAX_DRAG], [-10, 0]);
-
-  // Persistent Route Washing (Enhanced)
-  const routeWashColor = isLeft ? "rgba(139, 92, 246, 0.08)" : isRight ? "rgba(234, 179, 8, 0.08)" : "transparent";
-
-  /* ================= DRAG HANDLERS ================= */
   const handleDragEnd = (_, info) => {
     setIsDragging(false);
-    if (info.offset.x < -THRESHOLD) {
-      navigate("/profile");
-    } else if (info.offset.x > THRESHOLD) {
-      navigate("/home");
-    }
+    if (info.offset.x < -THRESHOLD) navigate("/map");
+    else if (info.offset.x > THRESHOLD) navigate("/events");
     x.set(0);
   };
 
   return (
-    <div className="fixed bottom-8 left-1/2 -translate-x-1/2 z-[100] perspective-[1000px]">
+    <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-[1000] perspective-[1000px]">
       <motion.div 
-        style={{ 
-          backgroundColor: glassTint,
-          backdropFilter: glassBlur,
+        /* 🔥 Animated Glass Background */
+        animate={{ 
+          backgroundColor: currentTheme.color,
+          boxShadow: `0 20px 50px -12px ${currentTheme.glow}33`,
+          border: `1px solid ${currentTheme.glow}66`
         }}
-        className="relative w-[360px] h-16 rounded-full border border-white/40 shadow-[0_20px_50px_rgba(0,0,0,0.15)] flex items-center overflow-hidden"
+        transition={{ duration: 0.8, ease: "circOut" }}
+        className="relative w-[360px] drop-shadow-2xl h-18 rounded-4xl backdrop-blur-xl flex items-center overflow-hidden"
       >
-        {/* ================= STATIC ROUTE COLOR LAYER ================= */}
-        <motion.div 
-            animate={{ backgroundColor: routeWashColor }}
-            className="absolute inset-0 transition-colors duration-700 pointer-events-none"
-        />
+        {/* ================= NEUTRAL RAINBOW GRADIENT (For /home, /profile) ================= */}
+        <AnimatePresence>
+          {isNeutral && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ 
+                opacity: 0.15,
+                background: [
+                  "linear-gradient(45deg, #ff0080, #7928ca)",
+                  "linear-gradient(45deg, #0070f3, #00dfd8)",
+                  "linear-gradient(45deg, #f59e0b, #ef4444)",
+                  "linear-gradient(45deg, #ff0080, #7928ca)"
+                ]
+              }}
+              transition={{ duration: 10, repeat: Infinity, ease: "linear" }}
+              className="absolute inset-0 pointer-events-none"
+            />
+          )}
+        </AnimatePresence>
 
-        {/* ================= LIQUID FILL INDICATORS ================= */}
+        {/* ================= LIQUID DRAG GLOWS ================= */}
         <motion.div
           style={{
-            opacity: useTransform(liquidX, [-MAX_DRAG, -20, 0], [0.6, 0.2, 0]),
-            background: "linear-gradient(to right, rgba(139,92,246,0.3), transparent)",
+            opacity: useTransform(liquidX, [-MAX_DRAG, -20, 0], [0.8, 0.3, 0]),
+            background: "linear-gradient(to right, #10b981, transparent)",
           }}
-          className="absolute inset-0 pointer-events-none"
+          className="absolute inset-0 pointer-events-none blur-md"
         />
         <motion.div
           style={{
-            opacity: useTransform(liquidX, [0, 20, MAX_DRAG], [0, 0.2, 0.6]),
-            background: "linear-gradient(to left, rgba(234,179,8,0.3), transparent)",
+            opacity: useTransform(liquidX, [0, 20, MAX_DRAG], [0, 0.3, 0.8]),
+            background: "linear-gradient(to left, #6366f1, transparent)",
           }}
-          className="absolute inset-0 pointer-events-none"
+          className="absolute inset-0 pointer-events-none blur-md"
         />
 
-        {/* ================= NAV CONTENT ================= */}
         <div className="relative z-20 w-full flex items-center justify-between px-10">
           
-          {/* PROFILE SECTION */}
+          {/* LEFT: EVENTS */}
           <motion.div 
-            style={{ x: leftLabelX }}
-            className={`flex items-center gap-2 transition-colors duration-300 ${isLeft ? 'text-violet-600' : 'text-gray-500'}`}
+            animate={{ scale: location.pathname === "/events" ? 1.1 : 1 }}
+            className={`flex flex-col items-center gap-1 transition-colors duration-500 ${location.pathname === "/events" ? 'text-indigo-600' : 'text-slate-400'}`}
           >
-            <User size={20} strokeWidth={isLeft ? 2.5 : 2} />
-            <motion.span 
-                style={{ opacity: useTransform(liquidX, [-MAX_DRAG, -THRESHOLD, 0], [1, 0.4, isLeft ? 1 : 0]) }}
-                className="text-xs font-bold tracking-tight"
-            >
-              Profile
-            </motion.span>
+            <Calendar size={20} strokeWidth={2.5} />
+            <span className="text-[8px] font-black uppercase tracking-widest">Events</span>
           </motion.div>
 
-          {/* ================= INTERACTIVE BALL ================= */}
-          <div className="absolute left-1/2 -translate-x-1/2 flex items-center justify-center">
+          {/* ================= CENTER INTERACTIVE HUB ================= */}
+          <div className="absolute left-1/2 -translate-x-1/2">
             <motion.div
               drag="x"
               dragConstraints={{ left: 0, right: 0 }}
-              dragElastic={0.7}
-              onDragStart={() => { setIsDragging(true); setShowHint(false); localStorage.setItem("glass_nav_used", "true"); }}
+              dragElastic={0.8}
+              onDragStart={() => setIsDragging(true)}
               onDragEnd={handleDragEnd}
-              style={{ x, scale: ballScale }}
-              className="w-14 h-14 rounded-full bg-white shadow-[0_8px_25px_rgba(0,0,0,0.2)] cursor-grab active:cursor-grabbing flex items-center justify-center group"
+              onClick={() => !isDragging && navigate("/")}
+              style={{ x }}
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              className="w-15 h-15 rounded-full bg-white shadow-[0_10px_30px_rgba(0,0,0,0.15)] cursor-grab active:cursor-grabbing flex items-center justify-center relative"
             >
-              {/* Ball Shine */}
-              <div className="absolute inset-0 rounded-full bg-gradient-to-tr from-transparent via-white/40 to-white/10" />
-              
-              {/* Velocity-based ripple inside ball */}
+              {/* Inner animated ring */}
               <motion.div 
-                style={{ scale: useTransform(velocity, [-2000, 2000], [1.2, 1.2]) }}
-                className="w-8 h-8 rounded-full bg-gray-50 flex items-center justify-center"
-              >
-                 <div className="w-1.5 h-1.5 rounded-full bg-gray-300 group-active:scale-150 transition-transform" />
-              </motion.div>
-
-              {showHint && (
-                <motion.div
-                  animate={{ x: [-5, 5, -5] }}
-                  transition={{ duration: 1.5, repeat: Infinity }}
-                  className="absolute -top-8 text-[10px] font-bold text-gray-400 uppercase tracking-widest"
-                >
-                  Swipe
-                </motion.div>
-              )}
+                animate={{ 
+                  rotate: 360,
+                  borderColor: [currentTheme.glow, "#ffffff", currentTheme.glow] 
+                }}
+                transition={{ duration: 4, repeat: Infinity, ease: "linear" }}
+                className="absolute inset-1 rounded-full border-2 border-dashed opacity-30" 
+              />
+              
+              <LayoutGrid size={22} className={`${currentTheme.icon} transition-colors duration-500`} />
             </motion.div>
           </div>
 
-          {/* HOME SECTION */}
+          {/* RIGHT: MAP */}
           <motion.div 
-            style={{ x: rightLabelX }}
-            className={`flex items-center gap-2 transition-colors duration-300 ${isRight ? 'text-yellow-600' : 'text-gray-500'}`}
+            animate={{ scale: location.pathname === "/map" ? 1.1 : 1 }}
+            className={`flex flex-col items-center gap-1 transition-colors duration-500 ${location.pathname === "/map" ? 'text-emerald-600' : 'text-slate-400'}`}
           >
-             <motion.span 
-                style={{ opacity: useTransform(liquidX, [0, THRESHOLD, MAX_DRAG], [isRight ? 1 : 0, 0.4, 1]) }}
-                className="text-xs font-bold tracking-tight"
-            >
-              Home
-            </motion.span>
-            <Home size={20} strokeWidth={isRight ? 2.5 : 2} />
+            <Map size={20} strokeWidth={2.5} />
+            <span className="text-[8px] font-black uppercase tracking-widest">Explore</span>
           </motion.div>
         </div>
 
-        {/* Velocity Inertia Layer (Amazing smooth glow) */}
+        {/* Dynamic Velocity "Friction" Glow */}
         <motion.div 
            style={{ 
-             opacity: useTransform(velocity, [-2000, 0, 2000], [0.4, 0, 0.4]),
-             backgroundColor: useTransform(velocity, [-1, 0, 1], ["#8b5cf6", "transparent", "#eab308"])
+             opacity: useTransform(velocity, [-2000, 0, 2000], [0.6, 0, 0.6]),
+             backgroundColor: currentTheme.glow
            }}
-           className="absolute inset-0 pointer-events-none blur-xl"
+           className="absolute inset-0 pointer-events-none blur-3xl"
         />
       </motion.div>
     </div>
