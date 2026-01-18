@@ -18,14 +18,23 @@ const loginOrRegister = async (req, res) => {
     const sessionCookie = await admin.auth().createSessionCookie(idToken, { expiresIn });
 
     // 3. Set Cookie (localhost fix: secure: false)
+    // const isProd = process.env.NODE_ENV === 'production';
+    // const options = { 
+    //   maxAge: expiresIn, 
+    //   httpOnly: true, 
+    //   secure: isProd, 
+    //   sameSite: isProd ? 'none' : 'Lax',
+    //   path: '/' // Ensure cookie is available across all routes
+    // };
     const isProd = process.env.NODE_ENV === 'production';
-    const options = { 
-      maxAge: expiresIn, 
-      httpOnly: true, 
-      secure: isProd, 
-      sameSite: isProd ? 'none' : 'Lax',
-      path: '/' // Ensure cookie is available across all routes
-    };
+const options = { 
+  maxAge: expiresIn, 
+  httpOnly: true, 
+  secure: isProd, 
+  sameSite: isProd ? 'none' : 'Lax',
+  path: '/'
+};
+
     res.cookie('session', sessionCookie, options);
 
     // 4. Sync with MongoDB
