@@ -29,11 +29,19 @@ app.use(cookieParser());
 
 app.use(
   cors({
-    origin: ["http://localhost:5174", "http://localhost:5173","https://eventby-1.onrender.com"],
+    // Add EVERY possible variant of your Render URL
+    origin: [
+      "http://localhost:5173", 
+      "http://localhost:5174", 
+      "https://eventby.onrender.com", 
+      "https://eventby-1.onrender.com"
+    ],
     credentials: true,
-     allowedHeaders: ['Content-Type', 'Authorization']
+    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"]
   })
 );
+
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
