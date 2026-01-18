@@ -60,7 +60,6 @@ app.use(
 );
 
 // 3. PREFLIGHT HANDLER: Fixes CORS "failed" status on complex requests
-app.options("*", cors());
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
