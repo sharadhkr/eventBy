@@ -11,7 +11,20 @@ const EventsRoutes = require("./routes/organiser/Event.routes");
 
 const app = express();
 
-app.use(helmet());
+// app.use(helmet());
+app.use(
+  helmet({
+    contentSecurityPolicy: {
+      directives: {
+        ...helmet.contentSecurityPolicy.getDefaultDirectives(),
+        "script-src": ["'self'", "https://www.google.com", "https://www.gstatic.com"],
+        "frame-src": ["'self'", "https://www.google.com"],
+        "connect-src": ["'self'", "https://eventby-1.onrender.com"] // Add your API domain
+      },
+    },
+  })
+);
+
 app.use(cookieParser());
 
 app.use(
