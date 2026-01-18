@@ -36,6 +36,24 @@ router.get(
   verifyFirebaseToken,
   userController.getProfile
 );
+// DASHBOARD
+router.get(
+  "/dashboard/events",
+  verifyFirebaseToken,
+  userController.getDashboardEvents
+);
+
+router.get(
+  "/dashboard/recommended",
+  verifyFirebaseToken,
+  userController.getRecommendedEvents
+);
+
+router.get(
+  "/dashboard/announcements",
+  verifyFirebaseToken,
+  userController.getDashboardAnnouncements
+);
 
 router.patch(
   "/update-profile",

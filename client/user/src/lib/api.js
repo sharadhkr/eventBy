@@ -106,6 +106,19 @@ export const eventAPI = {
   getEventDetails: (id) =>
     api.get(`/users/events/${id}`),
 };
+export const dashboardAPI = {
+  // Joined events + passes
+  getDashboardEvents: () =>
+    api.get("/users/dashboard/events"),
+
+  // Recommended events
+  getRecommendedEvents: () =>
+    api.get("/users/dashboard/recommended"),
+
+  // Announcement feed
+  getDashboardAnnouncements: () =>
+    api.get("/users/dashboard/announcements"),
+};
 
 /* ===========================
    TEAM API

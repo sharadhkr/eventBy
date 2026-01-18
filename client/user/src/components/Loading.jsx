@@ -1,20 +1,13 @@
 import React from "react";
-import loader from "../assets/loading.gif";
+import { DotLottieReact } from '@lottiefiles/dotlottie-react';
 
 function Loading() {
   return (
-    <div
-      className="h-screen w-screen flex items-center justify-center overflow-hidden
-      bg-[#fcfefc]  animated-bg"
-      role="status"
-      aria-busy="true"
-    >
-      <img
-        src={loader}
-        alt="Loading"
-        className="w-72 h-72 select-none pointer-events-none"
-      />
-    </div>
+    <DotLottieReact
+      src="https://lottie.host/3a6b4130-959c-4f93-b101-eca08e7593fc/4jgSAB1bFd.lottie"
+      loop
+      autoplay
+    />
   );
 }
 

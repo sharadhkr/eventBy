@@ -7,6 +7,7 @@ import EditProfile from "../pages/EditProfilepage";
 import ProfilePage from "../pages/profile/ProfilePage";
 import JoinEventPage from "../pages/JoinEventPage";
 import EventMapPage from "../pages/EventMapPage";
+import UserEvents from "../pages/UserEvents";
 
 export default function AppRoutes() {
   return (
@@ -28,7 +29,7 @@ export default function AppRoutes() {
           <Route path="/map" element={<EventMapPage/>} />
           <Route path="/editprofile" element={<EditProfile />} />
           <Route path="/events/:id" element={<JoinEventPage/>} />
-          <Route path="/events" element={<JoinEventPage/>} />
+          <Route path="/events" element={<UserEvents/>} />
         </Route>
 
         {/* Redirect */}

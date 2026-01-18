@@ -273,6 +273,96 @@ const getTopOrganisers = async (req, res) => {
 
   res.json({ success: true, data: organisers });
 };
+const getDashboardAnnouncements = async (req, res) => {
+  try {
+    const user = await User.findOne({ uid: req.user.uid });
+
+    const participations = await EventParticipation.find({ user: user._id })
+      .select("event")
+      .lean();
+
+    const eventIds = participations.map(p => p.event);
+
+    const groups = await Announcement.find({
+      event: { $in: eventIds }
+    })
+      .populate("event", "title banner")
+      .sort({ updatedAt: -1 })
+      .lean();
+
+    const feed = groups.flatMap(group =>
+      group.messages.map(msg => ({
+        ...msg,
+        event: group.event
+      }))
+    );
+
+    res.json({ success: true, data: feed });
+  } catch (err) {
+    console.error("Announcement Feed Error:", err);
+    res.status(500).json({ message: "Failed to load announcements" });
+  }
+};
+const getRecommendedEvents = async (req, res) => {
+  try {
+    const user = await User.findOne({ uid: req.user.uid }).lean();
+
+    const joined = await EventParticipation.find({ user: user._id })
+      .select("event")
+      .lean();
+
+    const joinedIds = joined.map(j => j.event);
+
+    const events = await Event.find({
+      status: "published",
+      _id: { $nin: joinedIds },
+      eventType: { $in: user.skills || [] }
+    })
+      .limit(10)
+      .populate("organiser", "organisationName logo")
+      .lean();
+
+    res.json({ success: true, data: events });
+  } catch (err) {
+    console.error("Recommendation Error:", err);
+    res.status(500).json({ message: "Failed to fetch recommendations" });
+  }
+};
+const getDashboardEvents = async (req, res) => {
+  try {
+    const user = await User.findOne({ uid: req.user.uid });
+
+    const participations = await EventParticipation.find({ user: user._id })
+      .populate({
+        path: "event",
+        populate: { path: "organiser", select: "organisationName logo" }
+      })
+      .populate("team")
+      .lean();
+
+    const eventIds = participations.map(p => p.event?._id);
+
+    const passes = await EventPass.find({
+      user: user._id,
+      event: { $in: eventIds }
+    }).lean();
+
+    const passMap = {};
+    passes.forEach(p => {
+      passMap[p.event.toString()] = p;
+    });
+
+    const enriched = participations.map(p => ({
+      ...p,
+      pass: passMap[p.event._id.toString()] || null
+    }));
+
+    res.json({ success: true, data: enriched });
+  } catch (err) {
+    console.error("Dashboard Events Error:", err);
+    res.status(500).json({ message: "Failed to load dashboard events" });
+  }
+};
 
 /* ============================================================
    EXPORTS (SINGLE SOURCE OF TRUTH)
@@ -288,6 +378,9 @@ module.exports = {
   getMyEvents,
   getEventDetails,
   toggleSaveEvent,
-  getAllEvents,
+  getAllEvents,  
+  getDashboardEvents,
+  getRecommendedEvents,
+  getDashboardAnnouncements,
   getTopOrganisers
 };
