@@ -64,8 +64,20 @@ const options = {
 };
 
 const logout = async (req, res) => {
-  res.clearCookie('session', { path: '/' }); // Path must match the one used to set it
-  res.status(200).json({ success: true, message: "Logged out" });
+  const isProd = process.env.NODE_ENV === 'production';
+
+  res.clearCookie('session', { 
+    path: '/',
+    httpOnly: true,
+    // MUST match the settings used in loginOrRegister:
+    secure: true,      // Always true for Render/HTTPS
+    sameSite: 'none'   // Required for cross-domain auth
+  });
+
+  res.status(200).json({ 
+    success: true, 
+    message: "Logged out successfully" 
+  });
 };
 
 module.exports = { loginOrRegister, logout };

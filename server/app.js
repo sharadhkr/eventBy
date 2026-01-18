@@ -11,7 +11,7 @@ const EventsRoutes = require("./routes/organiser/Event.routes");
 
 const app = express();
 
-// app.use(helmet());
+// 1. HELMET CONFIG: Optimized for reCAPTCHA and API calls
 app.use(
   helmet({
     contentSecurityPolicy: {
@@ -19,29 +19,48 @@ app.use(
         ...helmet.contentSecurityPolicy.getDefaultDirectives(),
         "script-src": ["'self'", "https://www.google.com", "https://www.gstatic.com"],
         "frame-src": ["'self'", "https://www.google.com"],
-        "connect-src": ["'self'", "https://eventby-1.onrender.com"] // Add your API domain
+        // Allow connections to self, your Render URL, and Firebase
+        "connect-src": [
+          "'self'", 
+          "https://eventby-1.onrender.com", 
+          "https://eventby.onrender.com",
+          "https://*.googleapis.com",
+          "https://*.firebaseapp.com"
+        ],
       },
     },
+    crossOriginResourcePolicy: { policy: "cross-origin" }
   })
 );
 
 app.use(cookieParser());
 
+// 2. CORS CONFIG: Explicitly allowed for Credentials
+const allowedOrigins = [
+  "http://localhost:5173", 
+  "http://localhost:5174", 
+  "https://eventby.onrender.com", 
+  "https://eventby-1.onrender.com"
+];
+
 app.use(
   cors({
-    // Add EVERY possible variant of your Render URL
-    origin: [
-      "http://localhost:5173", 
-      "http://localhost:5174", 
-      "https://eventby.onrender.com", 
-      "https://eventby-1.onrender.com"
-    ],
+    origin: function (origin, callback) {
+      // Allow requests with no origin (like mobile apps or curl)
+      if (!origin || allowedOrigins.includes(origin)) {
+        callback(null, true);
+      } else {
+        callback(new Error("Not allowed by CORS"));
+      }
+    },
     credentials: true,
     methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-    allowedHeaders: ["Content-Type", "Authorization"]
+    allowedHeaders: ["Content-Type", "Authorization", "Cookie"]
   })
 );
 
+// 3. PREFLIGHT HANDLER: Fixes CORS "failed" status on complex requests
+app.options("*", cors());
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
@@ -49,6 +68,8 @@ app.use(express.urlencoded({ extended: true }));
 if (process.env.NODE_ENV !== "production") {
   app.use(morgan("dev"));
 }
+
+// Routes
 app.use("/users", authRoutes);
 app.use("/teams", teamRoutes);
 app.use("/api/organiser/auth", organiserAuthRoutes);
@@ -57,9 +78,14 @@ app.use("/api/event", EventsRoutes);
 app.get("/health", (req, res) => {
   res.json({ status: "ok" });
 });
+
+// Error Handler
 app.use((err, req, res, next) => {
   console.error("Global Error Handler:", err);
-  res.status(500).send(err.message || "Internal Server Error");
+  res.status(err.status || 500).json({ 
+    success: false, 
+    message: err.message || "Internal Server Error" 
+  });
 });
 
 module.exports = app;
