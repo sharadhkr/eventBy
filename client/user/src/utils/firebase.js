@@ -10,13 +10,15 @@ import {
 } from "firebase/auth";
 
 const firebaseConfig = {
-  apiKey: "AIzaSyBjRVoRq1tdYNWkjD6wbu5m1VFLutJ9UpY",
-  authDomain: "event-622e4.firebaseapp.com",
-  projectId: "event-622e4",
-  storageBucket: "event-622e4.firebasestorage.app",
-  messagingSenderId: "545526115866",
-  appId: "1:545526115866:web:bd3635fbb41d4cf7d86ba3",
+  apiKey: "AIzaSyC5yw8DXx7JyAH1PC8bwTHyCl4K6S_Jdss",
+  authDomain: "eventrix-36302.firebaseapp.com",
+  projectId: "eventrix-36302",
+  storageBucket: "eventrix-36302.firebasestorage.app",
+  messagingSenderId: "1096540170064",
+  appId: "1:1096540170064:web:4b5bfdf5acf2e0fb7dae55",
+  measurementId: "G-08JW5FN0JT"
 };
+
 
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);

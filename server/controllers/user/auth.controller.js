@@ -1,106 +1,93 @@
 const User = require("../../models/User.model");
 const { admin } = require("../../config/firebase");
+const jwt = require("jsonwebtoken");
 
 /* ============================================================
-   LOGIN / REGISTER WITH FIREBASE
+   LOGIN / REGISTER WITH FIREBASE (STABLE)
    POST /users/firebase
 ============================================================ */
+
 const loginOrRegister = async (req, res) => {
+  console.log("🔥 Login Request Received");
+  
   try {
     const { idToken } = req.body;
 
     if (!idToken) {
       return res.status(400).json({
         success: false,
-        message: "No ID Token provided",
+        message: "No ID token provided",
       });
     }
 
-    /* 1. Verify Firebase ID Token */
-    const decodedToken = await admin.auth().verifyIdToken(idToken);
+    // 1. Decode purely for logging (don't name this 'jwt')
+    const tokenParts = idToken.split(".");
+    if (tokenParts.length > 1) {
+        const payload = JSON.parse(Buffer.from(tokenParts[1], "base64").toString());
+        console.log("🔥 TOKEN ISS:", payload.iss);
+        console.log("🔥 TOKEN AUD:", payload.aud);
+    }
 
-    /* 2. Create Firebase Session Cookie (7 days) */
-    const expiresIn = 7 * 24 * 60 * 60 * 1000; // 7 days
-    const sessionCookie = await admin
-      .auth()
-      .createSessionCookie(idToken, { expiresIn });
+    /* 2. Verify Firebase ID Token (The Real Check) */
+    // If .env emulator lines are commented out, this checks against Google's public keys
+    const decoded = await admin.auth().verifyIdToken(idToken);
+    
+    console.log("✅ Firebase Token Verified for UID:", decoded.uid);
 
-    /* 3. Set Session Cookie */
-    const isProd = process.env.NODE_ENV === "production";
-
-    res.cookie("session", sessionCookie, {
-      maxAge: expiresIn,
-      httpOnly: true,
-      secure: isProd,                 // HTTPS only in prod
-      sameSite: isProd ? "none" : "Lax",
-      path: "/",
-    });
-
-    /* 4. Sync User with MongoDB */
-    let user = await User.findOne({ uid: decodedToken.uid });
+    /* 3. Sync User with MongoDB */
+    let user = await User.findOne({ uid: decoded.uid });
 
     if (!user) {
       user = await User.create({
-        uid: decodedToken.uid,
-        email: decodedToken.email || "",
-        displayName: decodedToken.name || "New User",
+        uid: decoded.uid,
+        email: decoded.email || "",
+        displayName: decoded.name || "New User",
         photoURL:
-          decodedToken.picture ||
-          `https://api.dicebear.com/6.x/identicon/svg?seed=${decodedToken.uid}`,
+          decoded.picture ||
+          `https://api.dicebear.com{decoded.uid}`,
+        provider: decoded.firebase?.sign_in_provider,
         lastLogin: new Date(),
       });
     } else {
       user.lastLogin = new Date();
-      if (decodedToken.picture) user.photoURL = decodedToken.picture;
+      if (decoded.picture) user.photoURL = decoded.picture;
       await user.save();
     }
 
-    const populatedUser = await User.findById(user._id).populate(
-      "joinedEvents"
+    /* 4. ISSUE OUR OWN JWT */
+    // We use the global 'jwt' require variable here
+    const appToken = jwt.sign(
+      {
+        uid: user.uid,
+        userId: user._id,
+        role: user.role || "user",
+      },
+      process.env.JWT_SECRET,
+      { expiresIn: "7d" }
     );
+
+    const populatedUser = await User.findById(user._id).populate("joinedEvents");
 
     return res.status(200).json({
       success: true,
+      token: appToken,
       user: populatedUser,
     });
   } catch (err) {
     console.error("❌ Firebase Login Error:", err.message);
-
+    
     return res.status(401).json({
       success: false,
-      message: err.message || "Authentication failed",
+      message: "Authentication failed: " + err.message,
     });
   }
 };
-
 /* ============================================================
-   LOGOUT
+   LOGOUT (SIMPLE & SAFE)
    POST /users/logout
 ============================================================ */
-const logout = async (req, res) => {
-  try {
-    const sessionCookie = req.cookies?.session;
-
-    /* Optional: revoke all Firebase sessions */
-    if (sessionCookie) {
-      const decoded = await admin
-        .auth()
-        .verifySessionCookie(sessionCookie, true);
-      await admin.auth().revokeRefreshTokens(decoded.sub);
-    }
-  } catch (err) {
-    // Silent fail — logout must always succeed
-  }
-
-  const isProd = process.env.NODE_ENV === "production";
-
-  res.clearCookie("session", {
-    path: "/",
-    httpOnly: true,
-    secure: isProd,
-    sameSite: isProd ? "none" : "Lax",
-  });
-
+const logout = async (_req, res) => {
+  // 🔥 Stateless logout — frontend deletes token
   return res.status(200).json({
     success: true,
     message: "Logged out successfully",

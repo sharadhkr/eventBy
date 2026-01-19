@@ -1,27 +1,33 @@
-const { admin } = require("../config/firebase");
+const jwt = require("jsonwebtoken");
 
-const verifyFirebaseToken = async (req, res, next) => {
+const verifyAuth = (req, res, next) => {
   try {
-    const sessionCookie = req.cookies?.session;
+    const authHeader = req.headers.authorization;
 
-    if (!sessionCookie) {
-      return res.status(401).json({ message: "Not authenticated" });
+    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+      return res.status(401).json({
+        success: false,
+        message: "Unauthorized",
+      });
     }
 
-    const decoded = await admin
-      .auth()
-      .verifySessionCookie(sessionCookie, true);
+    const token = authHeader.split(" ")[1];
+
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
     req.user = {
       uid: decoded.uid,
-      email: decoded.email,
+      userId: decoded.userId,
+      role: decoded.role,
     };
 
     next();
   } catch (err) {
-    console.error("Session verification failed:", err.message);
-    return res.status(401).json({ message: "Session expired, please relogin" });
+    return res.status(401).json({
+      success: false,
+      message: "Invalid or expired token",
+    });
   }
 };
 
-module.exports = { verifyFirebaseToken };
+module.exports = verifyAuth;

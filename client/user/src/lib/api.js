@@ -13,18 +13,22 @@ const API_BASE =
 const api = axios.create({
   baseURL: API_BASE,
   timeout: 15000,
-  withCredentials: true, // ✅ REQUIRED for session cookies
 });
 
 /* ===========================
    REQUEST INTERCEPTOR
 =========================== */
-/**
- * ❌ DO NOT attach idToken here
- * Auth is handled ONLY via httpOnly cookies
- */
 api.interceptors.request.use(
-  (config) => config,
+  (config) => {
+    const token = localStorage.getItem("token");
+
+    // 🔐 Attach JWT to all protected requests
+    if (token && !config.headers.Authorization) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+
+    return config;
+  },
   (error) => Promise.reject(error)
 );
 
@@ -37,12 +41,18 @@ api.interceptors.response.use(
     const status = error.response?.status;
     const url = error.config?.url || "";
 
-    // 🔐 Session expired (but NOT during login)
-    if (status === 401 && !url.includes("/users/firebase")) {
-      console.warn("Session expired. Redirecting to login.");
+    /**
+     * ❗ DO NOT redirect on auth endpoints
+     * otherwise login → 401 → redirect loop
+     */
+    const isAuthRoute =
+      url.includes("/users/firebase") ||
+      url.includes("/users/logout");
 
-      // Clear any leftover client-side state
-      localStorage.clear();
+    if (status === 401 && !isAuthRoute) {
+      console.warn("JWT expired or invalid. Redirecting to login.");
+
+      localStorage.removeItem("token");
       sessionStorage.clear();
 
       window.location.replace("/login");
@@ -56,12 +66,22 @@ api.interceptors.response.use(
    AUTH API
 =========================== */
 export const authAPI = {
-  // idToken used ONLY here
-  loginOrRegister: (idToken) =>
-    api.post("/users/firebase", { idToken }),
+  loginOrRegister: async (idToken) => {
+    const res = await api.post("/users/firebase", { idToken });
 
-  logout: () =>
-    api.post("/users/logout"),
+    // 🔥 Store JWT securely
+    if (res.data?.token) {
+      localStorage.setItem("token", res.data.token);
+    }
+
+    return res.data;
+  },
+
+  logout: async () => {
+    localStorage.removeItem("token");
+    sessionStorage.clear();
+    return api.post("/users/logout");
+  },
 };
 
 /* ===========================
@@ -106,16 +126,17 @@ export const eventAPI = {
   getEventDetails: (id) =>
     api.get(`/users/events/${id}`),
 };
+
+/* ===========================
+   DASHBOARD API
+=========================== */
 export const dashboardAPI = {
-  // Joined events + passes
   getDashboardEvents: () =>
     api.get("/users/dashboard/events"),
 
-  // Recommended events
   getRecommendedEvents: () =>
     api.get("/users/dashboard/recommended"),
 
-  // Announcement feed
   getDashboardAnnouncements: () =>
     api.get("/users/dashboard/announcements"),
 };

@@ -4,7 +4,7 @@ const router = express.Router();
 /* ===========================
    MIDDLEWARES
 =========================== */
-const {verifyFirebaseToken} = require("../../middlewares/firebase.middleware");
+const verifyAuth = require("../../middlewares/firebase.middleware");
 const upload = require("../../config/cloudinary");
 
 /* ===========================
@@ -14,7 +14,7 @@ const authController = require("../../controllers/user/auth.controller");
 const userController = require("../../controllers/user/user.controller");
 
 console.log("FINAL CHECK:", {
-  verifyFirebaseToken: typeof verifyFirebaseToken,
+  verifyAuth: typeof verifyAuth,
   loginOrRegister: typeof authController.loginOrRegister
 });
 
@@ -26,45 +26,45 @@ router.post(
   authController.loginOrRegister
 );
 
-router.post("/logout", authController.logout);
+router.post("/logout", verifyAuth,authController.logout);
 
 /* ===========================
    PROFILE
 =========================== */
 router.get(
   "/profile",
-  verifyFirebaseToken,
+  verifyAuth,
   userController.getProfile
 );
 // DASHBOARD
 router.get(
   "/dashboard/events",
-  verifyFirebaseToken,
+  verifyAuth,
   userController.getDashboardEvents
 );
 
 router.get(
   "/dashboard/recommended",
-  verifyFirebaseToken,
+  verifyAuth,
   userController.getRecommendedEvents
 );
 
 router.get(
   "/dashboard/announcements",
-  verifyFirebaseToken,
+  verifyAuth,
   userController.getDashboardAnnouncements
 );
 
 router.patch(
   "/update-profile",
-  verifyFirebaseToken,
+  verifyAuth,
   upload.single("photo"),
   userController.updateProfile
 );
 
 router.patch(
   "/update-resume",
-  verifyFirebaseToken,
+  verifyAuth,
   userController.updateResume
 );
 
@@ -75,35 +75,35 @@ router.patch(
 // Create Razorpay Order (PAID EVENTS)
 router.post(
   "/create-order/:eventId",
-  verifyFirebaseToken,
+  verifyAuth,
   userController.createOrder
 );
 
 // Join Event (Free / Paid / Team)
 router.post(
   "/join-event/:eventId",
-  verifyFirebaseToken,
+  verifyAuth,
   userController.joinEvent
 );
 
 // Get Announcements (Joined users only)
 router.get(
   "/events/:eventId/announcements",
-  verifyFirebaseToken,
+  verifyAuth,
   userController.getAnnouncements
 );
 
 // Save / Unsave Event (Bookmark)
 router.post(
   "/save-event/:eventId",
-  verifyFirebaseToken,
+  verifyAuth,
   userController.toggleSaveEvent
 );
 
 // User Joined Events
 router.get(
   "/my-events",
-  verifyFirebaseToken,
+  verifyAuth,
   userController.getMyEvents
 );
 

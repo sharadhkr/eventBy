@@ -1,7 +1,10 @@
-import React, { createContext, useState, useEffect, useContext, useRef } from "react";
-import { onAuthStateChanged, signOut } from "firebase/auth";
+import React, {
+  createContext,
+  useContext,
+  useEffect,
+  useState,
+} from "react";
 import { toast } from "react-hot-toast";
-import { auth } from "../utils/firebase";
 import { authAPI, userAPI } from "../lib/api";
 
 const AuthContext = createContext(null);
@@ -13,94 +16,77 @@ export const useAuth = () => {
 };
 
 export const AuthProvider = ({ children }) => {
-  const [firebaseUser, setFirebaseUser] = useState(null);
-  const [backendUser, setBackendUser] = useState(null);
+  const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
-  
-  // ✅ New: Ensures we don't redirect until the cookie sync is confirmed
-  const [isSyncing, setIsSyncing] = useState(false); 
-  const hasShownToast = useRef(false);
 
-  const refreshUser = async () => {
-    try {
-      const res = await userAPI.getProfile();
-      setBackendUser(res.data.user || res.data.data || res.data);
-    } catch (err) {
-      console.error("Failed to refresh user data:", err);
-    }
-  };
-
+  /* ===========================
+     INIT AUTH FROM JWT
+  =========================== */
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (fbUser) => {
-      setLoading(true);
+    const initAuth = async () => {
+      const token = localStorage.getItem("token");
 
-      if (!fbUser) {
-        setFirebaseUser(null);
-        setBackendUser(null);
-        localStorage.removeItem('idToken');
+      if (!token) {
         setLoading(false);
         return;
       }
 
       try {
-        setIsSyncing(true); // 🔄 Start backend sync
-        const idToken = await fbUser.getIdToken(true); 
-        localStorage.setItem('idToken', idToken);
-
-        // ✅ This call sets the 7-day cookie on your browser
-        const res = await authAPI.loginOrRegister(idToken);
-
-        setFirebaseUser(fbUser);
-        setBackendUser(res.data.user || res.data);
-
-        if (!hasShownToast.current) {
-          toast.success(res.data.isNewUser ? "Welcome! 👋" : "Welcome back! ✅");
-          hasShownToast.current = true;
-        }
+        const res = await userAPI.getProfile();
+        setUser(res.data.user || res.data.data || res.data);
       } catch (err) {
-        console.error("Auth sync failed:", err);
-        // If 7-day cookie fails, clear everything
-        await handleLocalLogout();
+        console.warn("JWT invalid or expired");
+        localStorage.removeItem("token");
       } finally {
-        setIsSyncing(false);
-        setLoading(false); 
+        setLoading(false);
       }
-    });
+    };
 
-    return () => unsubscribe();
+    initAuth();
   }, []);
 
-  const handleLocalLogout = async () => {
+  /* ===========================
+     LOGIN (called after Firebase login)
+  =========================== */
+  const login = async (idToken) => {
     try {
-      await authAPI.logout(); 
-    } catch (e) {
-      console.warn("Server session already cleared");
-    } finally {
-      await signOut(auth);
-      setBackendUser(null);
-      setFirebaseUser(null);
-      localStorage.removeItem('idToken');
-      hasShownToast.current = false;
-      setLoading(false);
-      setIsSyncing(false);
+      const res = await authAPI.loginOrRegister(idToken);
+      setUser(res.user || res.data?.user || res);
+      toast.success("Welcome 🎉");
+      return true;
+    } catch (err) {
+      toast.error("Login failed");
+      return false;
     }
   };
 
+  /* ===========================
+     LOGOUT
+  =========================== */
   const logout = async () => {
-    await handleLocalLogout();
-    toast.success("Logged out 👋");
+    try {
+      await authAPI.logout();
+    } catch {
+      // ignore
+    } finally {
+      localStorage.removeItem("token");
+      setUser(null);
+      toast.success("Logged out 👋");
+    }
   };
 
   return (
     <AuthContext.Provider
       value={{
-        user: backendUser,
-        firebaseUser,
-        // ✅ Double-check: Don't mark as authenticated if we are still syncing the cookie
-        isAuthenticated: !!backendUser && !isSyncing, 
-        loading: loading || isSyncing,
+        user,
+        isAuthenticated: !!user,
+        loading,
+        login,
         logout,
-        refreshUser,
+        refreshUser: async () => {
+          const res = await userAPI.getProfile();
+          setUser(res.data.user || res.data.data || res.data);
+        },
       }}
     >
       {children}
