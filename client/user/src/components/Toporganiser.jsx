@@ -35,7 +35,7 @@ const TopOrganisations = () => {
   }
 
   return (
-    <div className="w-full pt-6 relative">
+    <div className="w-full pt-4 relative">
       <div className="px-6 mb-2 flex flex-col gap-1">
         <div className="flex items-center gap-2">
           <Sparkles size={18} className="text-violet-400" />
@@ -54,7 +54,7 @@ const TopOrganisations = () => {
             animate={{ opacity: 1, scale: 1 }}
             whileHover={{ rotate: index % 2 === 0 ? 3 : -3 }}
             transition={{ duration: 0.3, delay: index * 0.05 }}
-            className="flex-shrink-0 relative group pb-6"
+            className="flex-shrink-0 relative group pt-2 pb-6"
           >
             {/* The Compact Organic Shape (Returning to ~16-20 size) */}
             <div className="relative w-16 h-16 sm:w-20 drop-shadow-xl sm:h-20">
