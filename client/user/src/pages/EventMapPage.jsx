@@ -6,6 +6,7 @@ import { MapPin, Zap, Ticket, Laptop, Crosshair, Loader2, ArrowRight } from 'luc
 import { useNavigate } from 'react-router-dom';
 import { eventAPI } from '../lib/api'; 
 import { toast } from 'react-hot-toast';
+import Loading from '../components/Loading';
 
 // 1. Premium Custom Marker Styling
 const customMarkerIcon = (color) => L.divIcon({
@@ -96,9 +97,7 @@ export default function EventMapPage() {
       </div>
 
       {loading && (
-        <div className="absolute inset-0 z-[1001] bg-white/60 backdrop-blur-md flex items-center justify-center">
-          <Loader2 className="animate-spin text-indigo-600" size={40} />
-        </div>
+        <Loading/>
       )}
 
       <MapContainer center={center} zoom={12} style={{ height: '100%', width: '100%' }} zoomControl={false}>
