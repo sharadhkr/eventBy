@@ -6,6 +6,7 @@ import React, {
 } from "react";
 import { toast } from "react-hot-toast";
 import { authAPI, userAPI } from "../lib/api";
+import socket from "../lib/socket"; // ✅ ADD THIS
 
 const AuthContext = createContext(null);
 
@@ -18,6 +19,38 @@ export const useAuth = () => {
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
+useEffect(() => {
+  const initAuth = async () => {
+    const token = localStorage.getItem("token");
+
+    if (!token) {
+      setLoading(false);
+      return;
+    }
+
+    try {
+      const res = await userAPI.getProfile();
+      setUser(res.data.user || res.data.data || res.data);
+    } catch (err) {
+      console.warn("JWT invalid or expired");
+      localStorage.removeItem("token");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  initAuth();
+}, []);
+useEffect(() => {
+  if (user?._id) {
+    socket.connect();
+    socket.emit("join:user", user._id);
+  }
+
+  return () => {
+    socket.disconnect();
+  };
+}, [user]);
 
   /* ===========================
      INIT AUTH FROM JWT

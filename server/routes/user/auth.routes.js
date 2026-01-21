@@ -1,5 +1,6 @@
 const express = require("express");
-const router = express.Router();
+const 
+router = express.Router();
 
 /* ===========================
    MIDDLEWARES
@@ -68,25 +69,19 @@ router.patch(
   userController.updateResume
 );
 
-/* ===========================
-   PAYMENTS & EVENTS
-=========================== */
 
-// Create Razorpay Order (PAID EVENTS)
 router.post(
   "/create-order/:eventId",
   verifyAuth,
   userController.createOrder
 );
 
-// Join Event (Free / Paid / Team)
 router.post(
   "/join-event/:eventId",
   verifyAuth,
   userController.joinEvent
 );
 
-// Get Announcements (Joined users only)
 router.get(
   "/events/:eventId/announcements",
   verifyAuth,
@@ -126,7 +121,10 @@ router.get(
 /* ===========================
    ORGANISERS
 =========================== */
-
+router.get(
+  "/home/details",verifyAuth,
+  userController.getUserDashboardHome
+)
 // Top Organisers
 router.get(
   "/organisers",

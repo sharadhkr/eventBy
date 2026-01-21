@@ -3,7 +3,8 @@ const AnnouncementGroup = require("../../models/Announcement.model");
 const EventParticipation = require("../../models/Event.participation.model");
 const Payment = require("../../models/Payment.model");
 const EventPass = require("../../models/Event.pass.model");
-
+const autoVerifyOrganiser = require("../../utils/autoVerifyOrganiser");
+const Organiser = require("../../models/organiser.model");
 /* ================= UTILS ================= */
 
 const parseJsonFields = (data, fields) => {
@@ -283,6 +284,8 @@ exports.deleteEvent = async (req, res) => {
 /* =========================================================
    5. STATUS
 ========================================================= */
+
+
 exports.toggleEventStatus = async (req, res) => {
   const { status } = req.body;
 
@@ -298,8 +301,22 @@ exports.toggleEventStatus = async (req, res) => {
 
   if (!event) return res.status(404).json({ message: "Event not found" });
 
+  // 🔥 AUTO-VERIFY LOGIC HERE
+  if (status === "completed") {
+    // 1️⃣ Increment organiser event count
+    await Organiser.findByIdAndUpdate(
+      event.organiser,
+      { $inc: { totalEventsCreated: 1 } },
+      { new: true }
+    );
+
+    // 2️⃣ Auto-verify if threshold met
+    await autoVerifyOrganiser(event.organiser);
+  }
+
   res.json({ success: true, status: event.status });
 };
+
 
 /* =========================================================
    6. ANNOUNCEMENTS

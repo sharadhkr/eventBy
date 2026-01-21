@@ -1,149 +1,322 @@
-import React, { useState, useEffect, useMemo } from 'react';
-import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
-import L from 'leaflet';
-import 'leaflet/dist/leaflet.css';
-import { MapPin, Zap, Ticket, Laptop, Crosshair, Loader2, ArrowRight } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
-import { eventAPI } from '../lib/api'; 
-import { toast } from 'react-hot-toast';
-import Loading from '../components/Loading';
+import React, { useEffect, useMemo, useRef, useState } from "react";
+import {
+  MapContainer,
+  TileLayer,
+  Marker,
+  Popup,
+  useMap,
+} from "react-leaflet";
+import L from "leaflet";
+import "leaflet/dist/leaflet.css";
+import "leaflet-routing-machine";
+import "leaflet-routing-machine/dist/leaflet-routing-machine.css";
 
-// 1. Premium Custom Marker Styling
-const customMarkerIcon = (color) => L.divIcon({
-  html: `<div style="background-color: ${color};" class="w-10 h-10 rounded-2xl border-4 border-white shadow-2xl flex items-center justify-center transition-transform hover:scale-110">
-            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
-         </div>`,
-  className: '',
-  iconSize: [40, 40],
-  iconAnchor: [20, 40],
+import { MapPin, Filter } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { eventAPI } from "../lib/api";
+import { toast } from "react-hot-toast";
+import Loading from "../components/Loading";
+
+/* 👉 YOUR VAUL DRAWER */
+import {
+  Drawer,
+  DrawerContent,
+  DrawerHeader,
+  DrawerTitle,
+} from "@/components/ui/drawer";
+import { Button } from "@/components/ui/button";
+
+/* =========================
+   MARKER ICONS
+========================= */
+const eventMarker = (type) =>
+  L.divIcon({
+    html: `<div class="marker ${type}"></div>`,
+    className: "",
+    iconSize: [22, 22],
+    iconAnchor: [11, 11],
+  });
+
+const userMarker = L.divIcon({
+  html: `<div class="user-dot"></div>`,
+  className: "",
+  iconSize: [16, 16],
+  iconAnchor: [8, 8],
 });
 
-function RecenterButton({ coords }) {
-  const map = useMap();
-  return (
-    <button 
-      onClick={() => map.flyTo(coords, 12)}
-      className="absolute bottom-10 right-10 z-[1000] p-4 bg-white rounded-3xl shadow-2xl hover:bg-slate-50 text-indigo-600 transition-all border border-slate-100"
-    >
-      <Crosshair size={24} />
-    </button>
-  );
-}
+/* =========================
+   DISTANCE UTILITY
+========================= */
+const distanceKm = (lat1, lon1, lat2, lon2) => {
+  const R = 6371;
+  const dLat = ((lat2 - lat1) * Math.PI) / 180;
+  const dLon = ((lon2 - lon1) * Math.PI) / 180;
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(lat1 * Math.PI / 180) *
+      Math.cos(lat2 * Math.PI / 180) *
+      Math.sin(dLon / 2) ** 2;
+  return +(R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))).toFixed(1);
+};
 
-export default function EventMapPage() {
-  const navigate = useNavigate();
-  const [events, setEvents] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [filter, setFilter] = useState('all');
-  const [center, setCenter] = useState([26.2317, 78.1627]); // Default to Gwalior (from your DB record)
+/* =========================
+   ROUTING (GOOGLE MAPS STYLE)
+========================= */
+function NavigationRoute({ from, to }) {
+  const map = useMap();
+  const routeRef = useRef(null);
 
   useEffect(() => {
-    const loadEvents = async () => {
+    if (!from || !to) return;
+
+    if (routeRef.current) {
+      map.removeControl(routeRef.current);
+    }
+
+    routeRef.current = L.Routing.control({
+      waypoints: [L.latLng(from), L.latLng(to)],
+      addWaypoints: false,
+      draggableWaypoints: false,
+      show: false,
+      fitSelectedRoutes: true,
+      lineOptions: {
+        styles: [{ color: "#2563eb", weight: 6 }],
+      },
+    }).addTo(map);
+
+    return () => {
+      if (routeRef.current) map.removeControl(routeRef.current);
+    };
+  }, [from, to, map]);
+
+  return null;
+}
+
+/* =========================
+   MAIN PAGE
+========================= */
+export default function EventMapPage() {
+  const navigate = useNavigate();
+
+  const [events, setEvents] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  /* 🔑 DRAWER CONTROL (IMPORTANT) */
+  const [drawerOpen, setDrawerOpen] = useState(false);
+
+  const [filters, setFilters] = useState({
+    free: false,
+    paid: false,
+    hackathon: false,
+    workshop: false,
+    techevent: false,
+  });
+  const [radius, setRadius] = useState("all");
+
+  const [userPos, setUserPos] = useState(null);
+  const [routeTo, setRouteTo] = useState(null);
+
+  /* LOAD EVENTS + USER LOCATION */
+  useEffect(() => {
+    (async () => {
       try {
-        setLoading(true);
         const res = await eventAPI.getAllEvents();
         setEvents(res.data?.data || []);
-      } catch (err) {
-        toast.error("Could not load event locations");
+      } catch {
+        toast.error("Failed to load events");
       } finally {
         setLoading(false);
       }
-    };
-    loadEvents();
+    })();
 
-    if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        (pos) => setCenter([pos.coords.latitude, pos.coords.longitude]),
-        () => console.log("Location access denied")
-      );
-    }
+    navigator.geolocation?.watchPosition(
+      (pos) =>
+        setUserPos([pos.coords.latitude, pos.coords.longitude]),
+      () => toast.error("Location permission denied"),
+      { enableHighAccuracy: true }
+    );
   }, []);
 
+  /* FILTER + DISTANCE LOGIC */
   const filteredEvents = useMemo(() => {
-    // Only show offline events on a map
-    const offlineEvents = events.filter(e => e.mode === 'offline');
-    
-    return offlineEvents.filter(e => {
-      if (filter === 'free') return e.price === 0;
-      if (filter === 'paid') return e.price > 0;
-      if (filter === 'tech') return e.eventType === 'hackathon';
-      return true;
-    });
-  }, [events, filter]);
+    if (!userPos) return [];
+
+    return events
+      .filter((e) => e.mode === "offline")
+      .map((e) => {
+        const [lng, lat] = e.geoLocation.coordinates;
+        return {
+          ...e,
+          lat,
+          lng,
+          distance: distanceKm(userPos[0], userPos[1], lat, lng),
+        };
+      })
+      .filter((e) => {
+        const active = Object.values(filters).some(Boolean);
+        if (!active) return true;
+        if (filters.free && e.price === 0) return true;
+        if (filters.paid && e.price > 0) return true;
+        if (filters.hackathon && e.eventType === "hackathon") return true;
+        if (filters.workshop && e.eventType === "workshop") return true;
+        if (filters.techevent && e.eventType === "techevent") return true;
+        return false;
+      })
+      .filter((e) => {
+        if (radius === "all") return true;
+        return e.distance <= Number(radius);
+      });
+  }, [events, filters, radius, userPos]);
+
+  if (loading || !userPos) return <Loading />;
 
   return (
-    <div className="relative h-screen w-full bg-[#f8fafc] overflow-hidden">
-      
-      {/* FILTER DOCK */}
-      <div className="absolute top-8 left-1/2 -translate-x-1/2 z-[1000] w-[90%] max-w-2xl">
-        <div className="bg-white/90 backdrop-blur-xl border border-slate-100 shadow-2xl rounded-[2.5rem] p-2 flex items-center gap-1">
-          {[
-            { id: 'all', label: 'All', icon: null },
-            { id: 'free', label: 'Free', icon: <Zap size={14} /> },
-            { id: 'paid', label: 'Paid', icon: <Ticket size={14} /> },
-            { id: 'tech', label: 'Hackathons', icon: <Laptop size={14} /> }
-          ].map((btn) => (
-            <button
-              key={btn.id}
-              onClick={() => setFilter(btn.id)}
-              className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-[2rem] text-[10px] font-black uppercase tracking-widest transition-all ${
-                filter === btn.id ? 'bg-slate-900 text-white shadow-xl' : 'text-slate-400 hover:bg-slate-50'
-              }`}
+    <div className="relative h-screen w-full">
+
+      {/* FILTER BUTTON (FIXED + ABOVE MAP) */}
+      <Button
+        size="icon"
+        onClick={() => setDrawerOpen(true)}
+        className="fixed top-4 right-4 z-[2000] rounded-2xl shadow-xl"
+      >
+        <Filter />
+      </Button>
+
+      {/* DRAWER */}
+      <Drawer open={drawerOpen} onOpenChange={setDrawerOpen}>
+        <DrawerContent className="z-[3000]">
+          <DrawerHeader>
+            <DrawerTitle>Filter Events</DrawerTitle>
+          </DrawerHeader>
+
+          <div className="px-4 pb-6 space-y-6">
+
+            {/* EVENT TYPES */}
+            <div>
+              <p className="text-xs font-bold text-muted-foreground mb-2">
+                EVENT TYPE
+              </p>
+              <div className="grid grid-cols-2 gap-2">
+                {Object.keys(filters).map((key) => (
+                  <Button
+                    key={key}
+                    variant={filters[key] ? "default" : "secondary"}
+                    onClick={() =>
+                      setFilters((f) => ({ ...f, [key]: !f[key] }))
+                    }
+                  >
+                    {key.toUpperCase()}
+                  </Button>
+                ))}
+              </div>
+            </div>
+
+            {/* RADIUS */}
+            <div>
+              <p className="text-xs font-bold text-muted-foreground mb-2">
+                DISTANCE
+              </p>
+              <div className="grid grid-cols-4 gap-2">
+                {["5", "10", "25", "all"].map((r) => (
+                  <Button
+                    key={r}
+                    variant={radius === r ? "default" : "secondary"}
+                    onClick={() => setRadius(r)}
+                  >
+                    {r === "all" ? "ALL" : `${r} KM`}
+                  </Button>
+                ))}
+              </div>
+            </div>
+
+            <Button
+              className="w-full"
+              onClick={() => setDrawerOpen(false)}
             >
-              {btn.icon} {btn.label}
-            </button>
-          ))}
-        </div>
-      </div>
+              Apply Filters
+            </Button>
+          </div>
+        </DrawerContent>
+      </Drawer>
 
-      {loading && (
-        <Loading/>
-      )}
-
-      <MapContainer center={center} zoom={12} style={{ height: '100%', width: '100%' }} zoomControl={false}>
+      {/* MAP */}
+      <MapContainer
+        center={userPos}
+        zoom={13}
+        className="h-full w-full"
+      >
         <TileLayer url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png" />
 
-        {filteredEvents.map((event) => {
-          // ✅ FIX: Access path matches your MongoDB Schema [lng, lat]
-          const coords = event.geoLocation?.coordinates;
-          if (!coords || coords.length < 2) return null;
+        {/* USER LOCATION */}
+        <Marker position={userPos} icon={userMarker} />
 
-          // ✅ FIX: Leaflet needs [lat, lng], but MongoDB stores [lng, lat]
-          const position = [coords[1], coords[0]];
+        {/* EVENTS */}
+        {filteredEvents.map((event) => (
+          <Marker
+            key={event._id}
+            position={[event.lat, event.lng]}
+            icon={eventMarker(event.price > 0 ? "paid" : "free")}
+            eventHandlers={{
+              click: () => setRouteTo([event.lat, event.lng]),
+            }}
+          >
+            <Popup>
+              <div className="w-56">
+                <img
+                  src={event.banner}
+                  className="h-28 w-full rounded-xl object-cover"
+                />
+                <h3 className="font-black mt-2">{event.title}</h3>
+                <p className="text-xs text-muted-foreground">
+                  <MapPin size={10} className="inline" />{" "}
+                  {event.location?.address}
+                </p>
+                <p className="text-xs font-bold text-indigo-600">
+                  {event.distance} km away
+                </p>
+                <Button
+                  size="sm"
+                  className="w-full mt-2"
+                  onClick={() => navigate(`/events/${event._id}`)}
+                >
+                  View Event
+                </Button>
+              </div>
+            </Popup>
+          </Marker>
+        ))}
 
-          return (
-            <Marker 
-              key={event._id} 
-              position={position} 
-              icon={customMarkerIcon(event.price > 0 ? '#4f46e5' : '#10b981')}
-            >
-              <Popup>
-                <div className="p-1 w-64 font-sans">
-                  <img src={event.banner} className="w-full h-32 object-cover rounded-2xl mb-3" alt="" />
-                  <h3 className="font-black text-slate-800 text-sm mb-1">{event.title}</h3>
-                  <p className="text-slate-400 text-[10px] font-bold uppercase mb-3">
-                    <MapPin size={10} className="inline mr-1"/> {event.location?.address}
-                  </p>
-                  <div className="flex justify-between items-center pt-3 border-t border-slate-100">
-                    <span className="text-xs font-black">₹{event.price || '0'}</span>
-                    <button 
-                      onClick={() => navigate(`/events/${event._id}`)}
-                      className="bg-slate-900 text-white text-[9px] px-4 py-2 rounded-xl font-black"
-                    >
-                      VIEW EVENT
-                    </button>
-                  </div>
-                </div>
-              </Popup>
-            </Marker>
-          );
-        })}
-        <RecenterButton coords={center} />
+        {routeTo && <NavigationRoute from={userPos} to={routeTo} />}
       </MapContainer>
 
+      {/* MARKER STYLES */}
       <style>{`
-        .leaflet-popup-content-wrapper { border-radius: 28px !important; padding: 4px !important; }
-        .leaflet-popup-tip-container { display: none; }
+        .marker {
+          width: 22px;
+          height: 22px;
+          border-radius: 999px;
+          background: white;
+          box-shadow: 0 6px 18px rgba(0,0,0,.15);
+          position: relative;
+        }
+        .marker::after {
+          content:'';
+          position:absolute;
+          inset:-7px;
+          border-radius:999px;
+          opacity:.2;
+          background:var(--c);
+        }
+        .marker.free { --c:#10b981; box-shadow: inset 0 0 0 4px #10b981; }
+        .marker.paid { --c:#6366f1; box-shadow: inset 0 0 0 4px #6366f1; }
+
+        .user-dot {
+          width: 14px;
+          height: 14px;
+          background: #2563eb;
+          border-radius: 999px;
+          box-shadow: 0 0 0 6px rgba(37,99,235,.35);
+        }
       `}</style>
     </div>
   );

@@ -157,5 +157,11 @@ export const teamAPI = {
   respondToInvite: (teamId, action) =>
     api.post("/teams/respond", { teamId, action }),
 };
+/* ===========================
+   DASHBOARD HOME API
+=========================== */
+export const homeAPI = {
+  getHome: () => api.get("/users/home/details"),
+};
 
 export default api;

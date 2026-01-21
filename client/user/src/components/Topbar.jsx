@@ -8,7 +8,7 @@ function Topbar() {
   const { user } = useAuth();
 
   return (
-    <div className="relative w-full">
+    <div className="relative w-full md:w-[80%] m-auto">
       <div className="relative flex items-center justify-between px-3 py-3 backdrop-blur-xl z-50 drop-shadow-xl bg-white mt-4 m-2 rounded-3xl">
         
         {/* Left Section: User Profile */}
@@ -45,7 +45,7 @@ function Topbar() {
       </div>
 
       {/* Background Blurs */}
-      <div className="absolute w-full z-10 opacity-20 top-0 left-0 flex items-center justify-center blur-2xl pointer-events-none">
+      <div className="absolute w-full z-10 opacity-35 top-0 left-0 flex items-center justify-center blur-2xl pointer-events-none">
         <div className="w-[30%] h-20 bg-purple-400"></div>
         <div className="w-[40%] h-20 bg-pink-400"></div>
         <div className="w-[30%] h-20 bg-yellow-400"></div>

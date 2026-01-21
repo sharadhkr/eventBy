@@ -1,35 +1,59 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from '/vite.svg'
-import './App.css'
+import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { AdminAuthProvider } from "./context/admin";
+import AdminLogin from "./pages/Login";
+import AdminDashboard from "./pages/AdminDashboard";
+import AdminProtectedRoute from "./middleware/protected";
+import AdminLayout from "./layout/AdminLayout";
+import { Toaster } from "react-hot-toast";
+import AdminTopEvents from "./pages/Topevents";
+import { AdminTopEventsProvider } from "./context/Topevent";
+import AdminOrganisers from "./pages/AdminOrganisers";
+
 
 function App() {
-  const [count, setCount] = useState(0)
-
   return (
-    <>
-      <div>
-        <a href="https://vite.dev" target="_blank">
-          <img src={viteLogo} className="logo" alt="Vite logo" />
-        </a>
-        <a href="https://react.dev" target="_blank">
-          <img src={reactLogo} className="logo react" alt="React logo" />
-        </a>
-      </div>
-      <h1>Vite + React</h1>
-      <div className="card">
-        <button onClick={() => setCount((count) => count + 1)}>
-          count is {count}
-        </button>
-        <p>
-          Edit <code>src/App.jsx</code> and save to test HMR
-        </p>
-      </div>
-      <p className="read-the-docs">
-        Click on the Vite and React logos to learn more
-      </p>
-    </>
-  )
+    <BrowserRouter>
+      <AdminAuthProvider>
+        <Toaster position="top-right" />
+        <Routes>
+          <Route path="/login" element={<AdminLogin />} />
+
+          <Route
+            path="/dashboard"
+            element={
+              <AdminProtectedRoute>
+                <AdminLayout />
+              </AdminProtectedRoute>
+            }
+          >
+            <Route index element={<AdminDashboard />} />
+          </Route>
+          <Route
+            path="/top-events"
+            element={
+              <AdminProtectedRoute>
+                <AdminLayout />
+              </AdminProtectedRoute>
+            }
+          >
+            <Route index element={<AdminTopEventsProvider><AdminTopEvents /></AdminTopEventsProvider>} />
+          </Route>
+          <Route
+            path="/organisers"
+            element={
+              <AdminProtectedRoute>
+                <AdminLayout />
+              </AdminProtectedRoute>
+            }
+          >
+            <Route index element={<AdminOrganisers/>} />
+          </Route>
+
+
+        </Routes>
+      </AdminAuthProvider>
+    </BrowserRouter>
+  );
 }
 
-export default App
+export default App;

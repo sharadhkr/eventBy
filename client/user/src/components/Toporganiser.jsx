@@ -35,8 +35,8 @@ const TopOrganisations = () => {
   }
 
   return (
-    <div className="w-full pt-4 relative">
-      <div className="px-6 mb-2 flex flex-col gap-1">
+    <div className="w-full md:w-[80%] m-auto pt-4 relative">
+      <div className="px-6 mb-1 flex flex-col gap-1">
         <div className="flex items-center gap-2">
           <Sparkles size={18} className="text-violet-400" />
           <h2 className="text-[15px] font-bold text-slate-400 uppercase tracking-[0.2em]">

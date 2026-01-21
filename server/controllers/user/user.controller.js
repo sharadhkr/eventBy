@@ -10,6 +10,9 @@ const razorpay = require("../../config/rajorpay");
 const crypto = require("crypto");
 const generatePass = require("../../utils/Genrate.pass");
 
+const mongoose = require("mongoose");
+const TopEvent = require("../../models/Top.event");
+
 /* ============================================================
    PROFILE
 ============================================================ */
@@ -217,42 +220,94 @@ const getMyEvents = async (req, res) => {
 };
 const getAllEvents = async (req, res) => {
   try {
-    const events = await Event.find({ status: "published" })
-      .populate("organiser", "organisationName logo")
-      .sort({ eventStart: 1 })
-      .lean();
+    const events = await Event.aggregate([
+      {
+        $match: { status: "published" }
+      },
+      {
+        $lookup: {
+          from: "organisers",
+          localField: "organiser",
+          foreignField: "_id",
+          as: "organiser"
+        }
+      },
+      { $unwind: "$organiser" },
+
+      // 🔒 FILTER ONLY ACTIVE ORGANISERS
+      {
+        $match: {
+          "organiser.isActive": true
+        }
+      },
+
+      {
+        $project: {
+          title: 1,
+          banner: 1,
+          eventStart: 1,
+          mode: 1,
+          location: 1,
+          price: 1,
+          isPaid: 1,
+          organiser: {
+            organisationName: 1,
+            logo: 1
+          }
+        }
+      },
+      { $sort: { eventStart: 1 } }
+    ]);
 
     const normalized = events.map(e => ({
       ...e,
-      // Use the actual 'location' object created during Event.create
-      displayLocation: e.mode === "offline" 
-        ? `${e.location.city}, ${e.location.state}` 
-        : "Online Event",
-      
-      // Ensure date is consistent for frontend sorting
+      displayLocation:
+        e.mode === "offline"
+          ? `${e.location.city}, ${e.location.state}`
+          : "Online Event",
       date: e.eventStart,
-      
-      // Fallback for safety
       price: e.price || 0
     }));
 
     res.json({ success: true, data: normalized });
   } catch (err) {
-    console.error("Fetch Events Error:");
-    console.dir(err, { depth: null });
-    res.status(500).json({ success: false, message: "Failed to fetch events" });
+    res.status(500).json({
+      success: false,
+      message: "Failed to fetch events"
+    });
   }
 };
 
 
+
 const getEventDetails = async (req, res) => {
-  const event = await Event.findById(req.params.id)
-    .populate("organiser", "organisationName logo bio");
+  const event = await Event.aggregate([
+    { $match: { _id: new mongoose.Types.ObjectId(req.params.id) } },
+    {
+      $lookup: {
+        from: "organisers",
+        localField: "organiser",
+        foreignField: "_id",
+        as: "organiser"
+      }
+    },
+    { $unwind: "$organiser" },
 
-  if (!event) return res.status(404).json({ message: "Event not found" });
+    // 🔒 BLOCK INACTIVE ORGANISERS
+    {
+      $match: {
+        "organiser.isActive": true
+      }
+    }
+  ]);
 
-  res.json({ success: true, data: event });
+  if (!event.length) {
+    return res.status(404).json({ message: "Event not found" });
+  }
+
+  res.json({ success: true, data: event[0] });
 };
+
 
 const toggleSaveEvent = async (req, res) => {
   const user = await User.findOne({ uid: req.user.uid });
@@ -266,13 +321,51 @@ const toggleSaveEvent = async (req, res) => {
 };
 
 const getTopOrganisers = async (req, res) => {
-  const organisers = await Organiser.find({})
-    .select("organisationName logo bio followerCount")
-    .sort({ followerCount: -1 })
-    .limit(10);
+  try {
+    const organisers = await Organiser.aggregate([
+      {
+        // ✅ Treat true, "true", 1 as active
+        $match: {
+          $or: [
+            { isActive: true },
+            { isActive: "true" },
+            { isActive: 1 }
+          ]
+        }
+      },
+      {
+        $addFields: {
+          followerCount: {
+            $size: { $ifNull: ["$followers", []] }
+          }
+        }
+      },
+      {
+        $sort: { followerCount: -1 }
+      },
+      {
+        $limit: 10
+      },
+      {
+        $project: {
+          organisationName: 1,
+          logo: 1,
+          bio: 1,
+          followerCount: 1,
+          isActive: 1
+        }
+      }
+    ]);
 
-  res.json({ success: true, data: organisers });
+    res.status(200).json({ success: true, data: organisers });
+  } catch (err) {
+    res.status(500).json({
+      success: false,
+      message: "Failed to fetch top organisers",
+    });
+  }
 };
+
 const getDashboardAnnouncements = async (req, res) => {
   try {
     const user = await User.findOne({ uid: req.user.uid });
@@ -313,21 +406,37 @@ const getRecommendedEvents = async (req, res) => {
 
     const joinedIds = joined.map(j => j.event);
 
-    const events = await Event.find({
-      status: "published",
-      _id: { $nin: joinedIds },
-      eventType: { $in: user.skills || [] }
-    })
-      .limit(10)
-      .populate("organiser", "organisationName logo")
-      .lean();
+    const events = await Event.aggregate([
+      {
+        $match: {
+          status: "published",
+          _id: { $nin: joinedIds },
+          eventType: { $in: user.skills || [] }
+        }
+      },
+      {
+        $lookup: {
+          from: "organisers",
+          localField: "organiser",
+          foreignField: "_id",
+          as: "organiser"
+        }
+      },
+      { $unwind: "$organiser" },
+      {
+        $match: {
+          "organiser.isActive": true
+        }
+      },
+      { $limit: 10 }
+    ]);
 
     res.json({ success: true, data: events });
   } catch (err) {
-    console.error("Recommendation Error:", err);
     res.status(500).json({ message: "Failed to fetch recommendations" });
   }
 };
+
 const getDashboardEvents = async (req, res) => {
   try {
     const user = await User.findOne({ uid: req.user.uid });
@@ -363,6 +472,89 @@ const getDashboardEvents = async (req, res) => {
     res.status(500).json({ message: "Failed to load dashboard events" });
   }
 };
+// controllers/user/dashboard.controller.js
+const getUserDashboardHome = async (req, res) => {
+  try {
+    const user = await User.findOne({ uid: req.user.uid });
+    if (!user) return res.status(404).json({ message: "User not found" });
+
+    const participations = await EventParticipation.find({ user: user._id })
+      .populate({
+        path: "event",
+        populate: {
+          path: "organiser",
+          select: "organisationName logo isActive"
+        }
+      })
+      .populate("team")
+      .lean();
+
+    const now = new Date();
+
+    const joinedEvents = await Promise.all(
+      participations.map(async (p) => {
+        if (!p.event || !p.event.organiser?.isActive) return null;
+
+        const start = new Date(p.event.eventStart);
+        const diffMs = start - now;
+
+        const timeRemaining =
+          diffMs <= 0
+            ? "Started"
+            : {
+                days: Math.floor(diffMs / (1000 * 60 * 60 * 24)),
+                hours: Math.floor((diffMs / (1000 * 60 * 60)) % 24),
+                minutes: Math.floor((diffMs / (1000 * 60)) % 60),
+              };
+
+        const pass = await EventPass.findOne({
+          user: user._id,
+          event: p.event._id,
+        }).lean();
+
+        return {
+          ...p,
+          timeRemaining,
+          pass,
+        };
+      })
+    );
+
+    /* ===============================
+       ADMIN TOP EVENTS
+    =============================== */
+    const topEvents = await TopEvent.find({ active: true })
+      .sort({ position: 1 })
+      .populate({
+        path: "event",
+        match: { status: "published" },
+        populate: {
+          path: "organiser",
+          select: "organisationName logo isActive",
+        },
+      })
+      .lean();
+
+    const filteredTopEvents = topEvents
+      .filter(t => t.event && t.event.organiser?.isActive)
+      .map(t => ({
+        position: t.position,
+        event: t.event
+      }));
+
+    res.json({
+      success: true,
+      data: {
+        joinedEvents: joinedEvents.filter(Boolean),
+        topEvents: filteredTopEvents
+      }
+    });
+
+  } catch (err) {
+    console.error("Dashboard Home Error:", err);
+    res.status(500).json({ message: "Failed to load dashboard" });
+  }
+};
 
 /* ============================================================
    EXPORTS (SINGLE SOURCE OF TRUTH)
@@ -379,7 +571,7 @@ module.exports = {
   getEventDetails,
   toggleSaveEvent,
   getAllEvents,  
-  getDashboardEvents,
+  getDashboardEvents,getUserDashboardHome,
   getRecommendedEvents,
   getDashboardAnnouncements,
   getTopOrganisers

@@ -98,3 +98,21 @@ module.exports = {
   loginOrRegister,
   logout,
 };
+// const express = require("express");
+// const router = express.Router();
+// const TopEvent = require("../../models/TopEvent.model");
+
+// router.get("/", async (req, res) => {
+//   const events = await TopEvent.find({ active: true })
+//     .populate({
+//       path: "event",
+//       select: "title banner price isPaid eventStart organiser",
+//       populate: { path: "organiser", select: "organisationName logo" },
+//     })
+//     .sort({ position: 1 })
+//     .lean();
+
+//   res.json({ success: true, data: events });
+// });
+
+// module.exports = router;

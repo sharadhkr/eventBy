@@ -49,6 +49,7 @@ app.use(
       const allowedOrigins = [
         "http://localhost:5173",
         "http://localhost:5174",
+        "http://localhost:5175",
         "https://eventby.onrender.com",
         "https://eventby-1.onrender.com"
       ];
@@ -79,8 +80,14 @@ if (process.env.NODE_ENV !== "production") {
 // Routes
 app.use("/users", authRoutes);
 app.use("/teams", teamRoutes);
+
 app.use("/api/organiser/auth", organiserAuthRoutes);
 app.use("/api/event", EventsRoutes);
+
+app.use("/api/admin/dashboard", require("./routes/admin/dashboard.routes"));
+app.use("/api/admin/top-events", require("./routes/admin/Top.event.router"));
+app.use("/api/admin", require("./routes/admin/auth.router"));
+app.use("/api/admin/organisers", require("./routes/admin/organizer.routes"));
 
 app.get("/health", (req, res) => {
   res.json({ status: "ok" });
