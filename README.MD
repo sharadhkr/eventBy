@@ -1,7 +1,7 @@
 # 🎉 eventBy — Smart Event Management Platform
 
 <p align="center">
-  <img src="./banner.png" width="800" alt="eventBy Banner"/>
+  <img src="./i.png" width="800" alt="eventBy Banner"/>
 </p>
 
 <p align="center">
