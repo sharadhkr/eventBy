@@ -76,7 +76,6 @@ Designed with scalability and usability in mind, it provides a seamless experien
 
 ## 📂 Project Structure
 
-```bash id="k9j3pa"
 
 ```
 eventby
@@ -327,7 +326,6 @@ eventby
          ├─ autoVerifyOrganiser.js
          └─ Genrate.pass.js
 
-```
 ```
 
 ---
