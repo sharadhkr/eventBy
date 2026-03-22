@@ -697,18 +697,4 @@ const EventAnnouncements = () => {
         {/* hint */}
         <div style={{
           fontFamily: "var(--font-mono)",
-          fontSize: "0.58rem",
-          color: "var(--text-muted)",
-          textAlign: "center",
-          marginTop: "0.5rem",
-          letterSpacing: "0.08em",
-          flexShrink: 0,
-        }}>
-          ENTER → send &nbsp;·&nbsp; SHIFT+ENTER → new line
-        </div>
-      </div>
-    </>
-  );
-};
-
-export default EventAnnouncements;
+X
