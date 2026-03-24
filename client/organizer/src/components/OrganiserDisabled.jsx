@@ -2,7 +2,7 @@ import { Mail, Phone, ShieldAlert, RefreshCcw } from "lucide-react";
 
 const OrganiserDisabled = () => {
   const retryLogin = () => {
-    // 🔑 Clear disabled state and reload login page
+    
     sessionStorage.removeItem("organiserDisabled");
     window.location.reload();
   };
@@ -36,7 +36,6 @@ const OrganiserDisabled = () => {
           </div>
         </div>
 
-        {/* 🔁 Retry Button */}
         <button
           onClick={retryLogin}
           className="mt-6 w-full flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white py-3 rounded-xl transition-all"
