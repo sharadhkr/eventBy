@@ -34,13 +34,13 @@ import TopEvents from '../components/Topevents'
 function Home() {
   return (
     <div>
-      <TopOrganisations/>
-      <Datefilter/>
       <Topbar/>
+      <TopOrganisations/>
       <TopEvents/>
+      <JoinedEvents/>
+      <Datefilter/>
       {/* <TopEvent/> */}
       <Background/>
-      <JoinedEvents/>
     </div>
   )
 }
