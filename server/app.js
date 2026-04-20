@@ -83,6 +83,7 @@ app.use("/teams", teamRoutes);
 
 app.use("/api/organiser/auth", organiserAuthRoutes);
 app.use("/api/event", EventsRoutes);
+app.use("/api/explorer", require("./routes/explorer.routes"));
 
 app.use("/api/admin/dashboard", require("./routes/admin/dashboard.routes"));
 app.use("/api/admin/top-events", require("./routes/admin/Top.event.router"));
