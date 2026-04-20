@@ -465,7 +465,7 @@ export default function EventMapPage() {
     if (!userPos) return [];
 
     return events
-      .filter((e) => e.mode === "offline")
+      .filter((e) => e.mode === "offline" && e.geoLocation?.coordinates)
       .map((e) => {
         const [lng, lat] = e.geoLocation.coordinates;
         return {
