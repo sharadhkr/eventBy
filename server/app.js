@@ -22,8 +22,6 @@ app.use(
         // Allow connections to self, your Render URL, and Firebase
         "connect-src": [
           "'self'", 
-          "https://eventby-1.onrender.com", 
-          "https://eventby.onrender.com",
           "https://*.googleapis.com",
           "https://*.firebaseapp.com"
         ],
@@ -39,8 +37,6 @@ app.use(cookieParser());
 const allowedOrigins = [
   "http://localhost:5173", 
   "http://localhost:5174", 
-  "https://eventby.onrender.com", 
-  "https://eventby-1.onrender.com"
 ];
 
 app.use(
@@ -50,8 +46,6 @@ app.use(
         "http://localhost:5173",
         "http://localhost:5174",
         "http://localhost:5175",
-        "https://eventby.onrender.com",
-        "https://eventby-1.onrender.com"
       ];
       // Allow internal/non-browser requests or allowed domains
       if (!origin || allowedOrigins.includes(origin)) {
