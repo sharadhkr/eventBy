@@ -21,9 +21,12 @@ app.use(
         "frame-src": ["'self'", "https://www.google.com"],
         // Allow connections to self, your Render URL, and Firebase
         "connect-src": [
-          "'self'", 
+          "'self'",
           "https://*.googleapis.com",
-          "https://*.firebaseapp.com"
+          "https://*.firebaseapp.com",
+          "https://eventby-organiser.onrender.com",
+          "https://eventby.onrender.com",
+          "https://eventby-admin.onrender.com"
         ],
       },
     },
@@ -35,8 +38,11 @@ app.use(cookieParser());
 
 // 2. CORS CONFIG: Explicitly allowed for Credentials
 const allowedOrigins = [
-  "http://localhost:5173", 
-  "http://localhost:5174", 
+  "http://localhost:5173",
+  "http://localhost:5174",
+  "https://eventby-organiser.onrender.com",
+  "https://eventby.onrender.com",
+  "https://eventby-admin.onrender.com"
 ];
 
 app.use(
@@ -46,6 +52,9 @@ app.use(
         "http://localhost:5173",
         "http://localhost:5174",
         "http://localhost:5175",
+        "https://eventby-organiser.onrender.com",
+        "https://eventby.onrender.com",
+        "https://eventby-admin.onrender.com"
       ];
       // Allow internal/non-browser requests or allowed domains
       if (!origin || allowedOrigins.includes(origin)) {
@@ -91,9 +100,9 @@ app.get("/health", (req, res) => {
 // Error Handler
 app.use((err, req, res, next) => {
   console.error("Global Error Handler:", err);
-  res.status(err.status || 500).json({ 
-    success: false, 
-    message: err.message || "Internal Server Error" 
+  res.status(err.status || 500).json({
+    success: false,
+    message: err.message || "Internal Server Error"
   });
 });
 
