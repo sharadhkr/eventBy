@@ -10,7 +10,6 @@ import CreateEvent from "../pages/CreateEvent";
 import ManageEvents from "../pages/ManageEvents";
 import EditEvent from "../pages/EditEvent";
 import EditProfile from "../pages/EditProfile";
-import Analytics from "../pages/Analytics";
 import EventAnnouncements from "../pages/EventAnnouncements";
 
 export default function AppRoutes() {
