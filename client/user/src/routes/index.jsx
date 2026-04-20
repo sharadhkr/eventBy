@@ -32,8 +32,8 @@ export default function AppRoutes() {
           <Route path="/events" element={<UserEvents/>} />
         </Route>
 
-        {/* Redirect */}
-        {/* <Route path="*" element={<Navigate to="/home" replace />} /> */}
+        {/* Redirect unknown routes to home or login */}
+        <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </BrowserRouter>
   );

@@ -22,8 +22,10 @@ app.use(
         // Allow connections to self, your Render URL, and Firebase
         "connect-src": [
           "'self'",
+          "http://localhost:8000",
           "https://*.googleapis.com",
           "https://*.firebaseapp.com",
+          "https://eventby-server.onrender.com",
           "https://eventby-organiser.onrender.com",
           "https://eventby.onrender.com",
           "https://eventby-admin.onrender.com"

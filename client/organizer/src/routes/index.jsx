@@ -37,7 +37,7 @@ export default function AppRoutes() {
                         </Route>
                     </Route>
 
-                    {/* Fallback */}
+                    {/* Fallback for unknown routes */}
                     <Route path="*" element={<Navigate to="/login" replace />} />
                 </Routes>
             </BrowserRouter>

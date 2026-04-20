@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AdminAuthProvider } from "./context/admin";
 import AdminLogin from "./pages/Login";
 import AdminDashboard from "./pages/AdminDashboard";
@@ -49,7 +49,11 @@ function App() {
             <Route index element={<AdminOrganisers/>} />
           </Route>
 
-
+          {/* Root route - redirect to dashboard */}
+          <Route path="/" element={<Navigate to="/dashboard" replace />} />
+          
+          {/* Catch-all - redirect to login */}
+          <Route path="*" element={<Navigate to="/login" replace />} />
         </Routes>
       </AdminAuthProvider>
     </BrowserRouter>
