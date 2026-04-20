@@ -47,7 +47,7 @@ const AdminDashboard = () => {
 
   return (
     <motion.div
-      className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 p-4 md:p-8"
+      className="w-full"
       initial="hidden"
       animate="visible"
       variants={containerVariants}

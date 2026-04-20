@@ -111,8 +111,10 @@ const AdminLayout = () => {
           </div>
 
           {/* Page Content */}
-          <div className="flex-1 overflow-auto">
-            <Outlet />
+          <div className="flex-1 overflow-auto bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
+            <div className="max-w-7xl mx-auto px-4 md:px-8 py-8">
+              <Outlet />
+            </div>
           </div>
         </div>
       </div>
